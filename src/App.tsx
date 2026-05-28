@@ -37,7 +37,15 @@ import {
   serializeDeckState
 } from "./lib/deckPersistence";
 import { appendDeckVersion, loadDeckVersions, restoreDeckVersion } from "./lib/deckVersions";
-import type { AiSettings, DeckBrief, DeckState, DeckVersion, StoryNode } from "./types";
+import { getPptSlideLayout, pptWideCanvas } from "./lib/slideLayout";
+import type { AiSettings, DeckBrief, DeckState, DeckVersion, Slide, StoryNode } from "./types";
+
+interface RewriteCandidate {
+  nodeId: string;
+  intent: string;
+  originalSlide: Slide;
+  rewrittenSlide: Pick<Slide, "title" | "body" | "bullets" | "note">;
+}
 
 function App() {
   const [initialDeckState] = useState<DeckState>(() => loadSavedDeck() ?? initialDeck);
@@ -69,6 +77,7 @@ function App() {
     status: "idle" | "working" | "done" | "error";
     message: string;
   }>({ status: "idle", message: "" });
+  const [rewriteCandidate, setRewriteCandidate] = useState<RewriteCandidate | null>(null);
 
   useEffect(() => {
     saveDeckState(deckState);
@@ -102,6 +111,8 @@ function App() {
     const selected = next.nodes.find((node) => node.id === nodeId);
     setDeckState(next);
     setIntentDraft(selected?.intent ?? "");
+    setRewriteCandidate(null);
+    setSlideRewriteState({ status: "idle", message: "" });
   }
 
   function handleApplyIntent() {
@@ -110,18 +121,42 @@ function App() {
 
   async function handleAiRewriteSlide() {
     setSlideRewriteState({ status: "working", message: "正在重写当前页..." });
+    setRewriteCandidate(null);
 
     try {
       const rewrittenSlide = await rewriteSlideFromIntent(deckState, activeNode.id, intentDraft, aiSettings);
-      setDeckState((current) => applySlideRewrite(current, activeNode.id, intentDraft, rewrittenSlide));
-      setSlideRewriteState({ status: "done", message: "已根据当前意图重写这一页。" });
-      window.setTimeout(() => setSlideRewriteState({ status: "idle", message: "" }), 2200);
+      setRewriteCandidate({
+        nodeId: activeNode.id,
+        intent: intentDraft,
+        originalSlide: activeSlide,
+        rewrittenSlide
+      });
+      setSlideRewriteState({ status: "done", message: "已生成 AI 建议稿，请对比后应用。" });
     } catch (error) {
       setSlideRewriteState({
         status: "error",
         message: error instanceof Error ? error.message : "AI 重写失败，请检查设置后重试。"
       });
     }
+  }
+
+  function handleApplyRewriteCandidate() {
+    if (!rewriteCandidate) {
+      return;
+    }
+
+    setDeckState((current) =>
+      applySlideRewrite(current, rewriteCandidate.nodeId, rewriteCandidate.intent, rewriteCandidate.rewrittenSlide)
+    );
+    setIntentDraft(rewriteCandidate.intent);
+    setRewriteCandidate(null);
+    setSlideRewriteState({ status: "done", message: "已应用 AI 建议稿。" });
+    window.setTimeout(() => setSlideRewriteState({ status: "idle", message: "" }), 2200);
+  }
+
+  function handleDismissRewriteCandidate() {
+    setRewriteCandidate(null);
+    setSlideRewriteState({ status: "idle", message: "" });
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -284,10 +319,12 @@ function App() {
     setExportState("working");
     const pptxgen = (await import("pptxgenjs")).default;
     const pptx = new pptxgen();
-    pptx.layout = "LAYOUT_WIDE";
+    pptx.defineLayout({ name: "STORYDECK_WIDE", width: pptWideCanvas.width, height: pptWideCanvas.height });
+    pptx.layout = "STORYDECK_WIDE";
     pptx.author = "StoryDeck";
     pptx.subject = deckState.deck.goal;
     const template = deckState.template;
+    const layout = getPptSlideLayout();
     deckState.nodes.forEach((node) => {
       const slideContent = deckState.slides.find((slide) => slide.nodeId === node.id);
       if (!slideContent) {
@@ -295,58 +332,66 @@ function App() {
       }
       const slide = pptx.addSlide();
       slide.background = { color: template.backgroundColor };
+      slide.addShape(pptx.ShapeType.rect, {
+        ...layout.accentBand,
+        fill: { color: template.accentSoftColor, transparency: 55 },
+        line: { color: template.accentSoftColor, transparency: 100 }
+      });
       slide.addText(node.title, {
-        x: 0.55,
-        y: 0.35,
-        w: 2.4,
-        h: 0.25,
+        ...layout.kicker,
         fontSize: 10,
         bold: true,
         color: template.accentColor
       });
       slide.addText(slideContent.title, {
-        x: 0.55,
-        y: 0.95,
-        w: 10.8,
-        h: 0.8,
-        fontSize: 28,
+        ...layout.title,
+        fontSize: 30,
         bold: true,
-        color: template.textColor
-      });
-      slide.addText(slideContent.body, {
-        x: 0.6,
-        y: 2.05,
-        w: 7.6,
-        h: 1.1,
-        fontSize: 15,
-        color: template.bodyColor,
-        breakLine: false
-      });
-      slide.addText(slideContent.bullets.map((item) => `• ${item}`).join("\n"), {
-        x: 0.78,
-        y: 3.45,
-        w: 5.5,
-        h: 1.4,
-        fontSize: 15,
         color: template.textColor,
         breakLine: false,
         fit: "shrink"
       });
-      slide.addShape(pptx.ShapeType.rect, {
-        x: 8.8,
-        y: 1.95,
-        w: 3.1,
-        h: 2.9,
-        fill: { color: template.accentSoftColor },
-        line: { color: template.borderColor }
+      slide.addText(slideContent.body, {
+        ...layout.body,
+        fontSize: 15,
+        color: template.bodyColor,
+        breakLine: false,
+        fit: "shrink"
       });
-      slide.addText(node.intent, {
-        x: 9.08,
-        y: 2.24,
-        w: 2.5,
-        h: 2.15,
+      slideContent.bullets.slice(0, 3).forEach((bullet, index) => {
+        const card = layout.bulletCards[index];
+        slide.addShape(pptx.ShapeType.roundRect, {
+          ...card,
+          fill: { color: template.surfaceColor },
+          line: { color: template.borderColor }
+        });
+        slide.addText(String(index + 1).padStart(2, "0"), {
+          x: card.x + 0.17,
+          y: card.y + 0.18,
+          w: 0.45,
+          h: 0.18,
+          fontSize: 9,
+          bold: true,
+          color: template.accentColor,
+          breakLine: false
+        });
+        slide.addText(bullet, {
+          x: card.x + 0.17,
+          y: card.y + 0.58,
+          w: card.w - 0.34,
+          h: card.h - 0.72,
+          fontSize: 13,
+          bold: true,
+          color: template.textColor,
+          breakLine: false,
+          fit: "shrink"
+        });
+      });
+      slide.addText(slideContent.note, {
+        ...layout.note,
         fontSize: 12,
-        color: template.accentColor,
+        color: "64748B",
+        breakLine: false,
         fit: "shrink"
       });
     });
@@ -426,7 +471,7 @@ function App() {
               <h1>{activeSlide.title}</h1>
               <p>{activeSlide.body}</p>
               <div className="slide-grid">
-                {activeSlide.bullets.map((bullet, index) => (
+                {activeSlide.bullets.slice(0, 3).map((bullet, index) => (
                   <div className="slide-point" key={bullet}>
                     <span>{String(index + 1).padStart(2, "0")}</span>
                     <strong>{bullet}</strong>
@@ -473,6 +518,32 @@ function App() {
               <p className={`status-message ${slideRewriteState.status}`}>{slideRewriteState.message}</p>
             ) : null}
           </section>
+
+          {rewriteCandidate ? (
+            <section className="rewrite-review-panel" aria-label="AI 重写对比">
+              <div className="review-header">
+                <span className="section-label">AI 重写对比</span>
+                <strong>应用前确认</strong>
+              </div>
+              <div className="review-columns">
+                <SlideSummary title="原稿" slide={rewriteCandidate.originalSlide} />
+                <SlideSummary title="AI 建议稿" slide={rewriteCandidate.rewrittenSlide} />
+              </div>
+              <div className="review-actions">
+                <button className="secondary-action" onClick={handleAiRewriteSlide} disabled={slideRewriteState.status === "working"}>
+                  {slideRewriteState.status === "working" ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
+                  重新生成
+                </button>
+                <button className="secondary-action" onClick={handleDismissRewriteCandidate}>
+                  放弃
+                </button>
+                <button className="apply-button" onClick={handleApplyRewriteCandidate}>
+                  <Check size={16} />
+                  应用 AI 建议
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           {deckState.riskPrompt ? (
             <section className="risk-panel">
@@ -672,6 +743,27 @@ function PanelHeader({ icon, title, subtitle }: PanelHeaderProps) {
         <strong>{title}</strong>
       </div>
       <span>{subtitle}</span>
+    </div>
+  );
+}
+
+interface SlideSummaryProps {
+  title: string;
+  slide: Pick<Slide, "title" | "body" | "bullets" | "note">;
+}
+
+function SlideSummary({ title, slide }: SlideSummaryProps) {
+  return (
+    <div className="slide-summary">
+      <span>{title}</span>
+      <strong>{slide.title}</strong>
+      <p>{slide.body}</p>
+      <ul>
+        {slide.bullets.map((bullet) => (
+          <li key={bullet}>{bullet}</li>
+        ))}
+      </ul>
+      <small>{slide.note}</small>
     </div>
   );
 }

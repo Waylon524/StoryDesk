@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { initialDeck } from "./data/seedDeck";
 import { DECK_STORAGE_KEY } from "./lib/deckPersistence";
@@ -7,6 +7,10 @@ import { DECK_STORAGE_KEY } from "./lib/deckPersistence";
 describe("StoryDeck application shell", () => {
   beforeEach(() => {
     window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("keeps narrative-map generation in global settings instead of the slide intent panel", () => {
@@ -74,5 +78,56 @@ describe("StoryDeck application shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "AI 重写" }));
 
     expect(await screen.findByText("请先在设置中填写 API Key。")).toBeInTheDocument();
+  });
+
+  it("shows an AI rewrite comparison before applying the suggested slide", async () => {
+    window.localStorage.setItem(
+      "storydeck.aiSettings.v1",
+      JSON.stringify({
+        apiKey: "sk-test",
+        baseUrl: "https://api.deepseek.com",
+        model: "deepseek-v4-flash"
+      })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    title: "一副耳机暴露了校园交易的阻塞点",
+                    body: "同一个学生连续三次约交易失败，让信任、定价和履约成本变得可感知。",
+                    bullets: ["状态难确认", "价格没参照", "见面反复延期"],
+                    note: "用连续受阻的小故事承接当前意图。"
+                  })
+                }
+              }
+            ]
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("表达目标"), {
+      target: { value: "用连续失败的小故事呈现交易成本" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "AI 重写" }));
+
+    expect(await screen.findByText("AI 建议稿")).toBeInTheDocument();
+    expect(screen.getByText("原稿")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "校园二手交易存在的问题" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "一副耳机暴露了校园交易的阻塞点" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "应用 AI 建议" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "一副耳机暴露了校园交易的阻塞点" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("AI 建议稿")).not.toBeInTheDocument();
   });
 });
