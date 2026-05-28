@@ -8,7 +8,7 @@ import { useAiRewrite } from "./hooks/useAiRewrite";
 import { useDeckWorkspace } from "./hooks/useDeckWorkspace";
 import { useLibreOfficePreview } from "./hooks/useLibreOfficePreview";
 import { useProjectVersions } from "./hooks/useProjectVersions";
-import { generateDeckFromBrief } from "./lib/aiGeneration";
+import { generateDeckFromBrief, generateTemplateForDeck } from "./lib/aiGeneration";
 import { loadAiSettings, saveAiSettings } from "./lib/aiSettings";
 import { ensureDeckState } from "./lib/deckTemplate";
 import { parseDeckJson, serializeDeckState } from "./lib/deckPersistence";
@@ -41,6 +41,10 @@ function App() {
     status: "idle" | "working" | "done" | "error";
     message: string;
   }>({ status: "idle", message: "" });
+  const [templateGenerationState, setTemplateGenerationState] = useState<{
+    status: "idle" | "working" | "done" | "error";
+    message: string;
+  }>({ status: "idle", message: "" });
   const previewState = useLibreOfficePreview(deckState);
   const {
     versions,
@@ -49,6 +53,7 @@ function App() {
     projectState,
     setProjectState,
     handleSaveVersion,
+    saveAutomaticVersion,
     handleRestoreVersion
   } = useProjectVersions();
   const {
@@ -86,6 +91,9 @@ function App() {
 
     try {
       const currentSettings = settingsOpen ? settingsDraft : aiSettings;
+      if (!currentSettings.apiKey.trim()) {
+        throw new Error("请先在设置中填写 API Key。");
+      }
       if (settingsOpen) {
         saveAiSettings(currentSettings);
         setAiSettings(currentSettings);
@@ -100,6 +108,39 @@ function App() {
       setGenerationState({
         status: "error",
         message: error instanceof Error ? error.message : "AI 生成失败，请检查设置后重试。"
+      });
+    }
+  }
+
+  async function handleRegenerateTemplate() {
+    setTemplateGenerationState({ status: "working", message: "正在根据当前叙事地图生成模板..." });
+
+    try {
+      const currentSettings = settingsOpen ? settingsDraft : aiSettings;
+      if (!currentSettings.apiKey.trim()) {
+        throw new Error("请先在设置中填写 API Key。");
+      }
+      if (settingsOpen) {
+        saveAiSettings(currentSettings);
+        setAiSettings(currentSettings);
+      }
+
+      saveAutomaticVersion(
+        deckState,
+        "模板重生成前自动保存",
+        `重新生成「${deckState.template.name}」模板前的当前状态。`
+      );
+      const template = await generateTemplateForDeck(deckState, brief, currentSettings);
+      setDeckState((current) => ({
+        ...current,
+        template
+      }));
+      setTemplateGenerationState({ status: "done", message: "已重新生成并锁定模板，已自动保存变更前版本。" });
+      window.setTimeout(() => setTemplateGenerationState({ status: "idle", message: "" }), 2600);
+    } catch (error) {
+      setTemplateGenerationState({
+        status: "error",
+        message: error instanceof Error ? error.message : "AI 模板生成失败，请检查设置后重试。"
       });
     }
   }
@@ -218,12 +259,15 @@ function App() {
           settingsDraft={settingsDraft}
           setSettingsDraft={setSettingsDraft}
           generationState={generationState}
+          deckTemplate={deckState.template}
+          templateGenerationState={templateGenerationState}
           versions={versions}
           versionDraft={versionDraft}
           setVersionDraft={setVersionDraft}
           projectState={projectState}
           onClose={() => setSettingsOpen(false)}
           onGenerateDeck={handleGenerateDeck}
+          onRegenerateTemplate={handleRegenerateTemplate}
           onSaveVersion={() => handleSaveVersion(deckState)}
           onRestoreVersion={(versionId) =>
             handleRestoreVersion({

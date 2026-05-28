@@ -95,6 +95,19 @@ export async function generateDeckFromBrief(
   return payloadToDeckState(narrativePayload, brief, templatePayload);
 }
 
+export async function generateTemplateForDeck(
+  deckState: DeckState,
+  brief: DeckBrief,
+  settings: AiSettings,
+  fetcher: Fetcher = fetch
+): Promise<DeckTemplate> {
+  if (!settings.apiKey.trim()) {
+    throw new Error("请先在设置中填写 API Key。");
+  }
+
+  return generateTemplateFromNarrative(deckStateToNarrativePayload(deckState), brief, settings, fetcher);
+}
+
 export async function rewriteSlideFromIntent(
   deckState: DeckState,
   nodeId: string,
@@ -336,5 +349,27 @@ function payloadToDeckState(payload: GeneratedDeckPayload, brief: DeckBrief, tem
     slides,
     activeNodeId: nodes[0].id,
     riskPrompt: null
+  };
+}
+
+function deckStateToNarrativePayload(deckState: DeckState): GeneratedDeckPayload {
+  return {
+    deck: deckState.deck,
+    nodes: deckState.nodes.map((node) => {
+      const slide = deckState.slides.find((item) => item.nodeId === node.id);
+      return {
+        title: node.title,
+        intent: node.intent,
+        role: node.role,
+        duration: node.duration,
+        slide: {
+          layout: slide?.layout,
+          title: slide?.title ?? node.title,
+          body: slide?.body ?? node.intent,
+          bullets: slide?.bullets ?? ["补充关键论点"],
+          note: slide?.note ?? "保留当前叙事节点。"
+        }
+      };
+    })
   };
 }

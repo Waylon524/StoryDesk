@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { generateDeckFromBrief, rewriteSlideFromIntent, resolveChatCompletionsEndpoint } from "./aiGeneration";
+import {
+  generateDeckFromBrief,
+  generateTemplateForDeck,
+  rewriteSlideFromIntent,
+  resolveChatCompletionsEndpoint
+} from "./aiGeneration";
 import { initialDeck } from "../data/seedDeck";
 import type { AiSettings, DeckBrief } from "../types";
 
@@ -188,6 +193,34 @@ describe("ai deck generation", () => {
       accentColor: "2563EB"
     });
     expect(deck.slides[0].layout).toBe("statement");
+  });
+
+  it("regenerates only the deck template from the current narrative map", async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({
+        name: "AI Fresh Blue",
+        aspectRatio: "16:9",
+        backgroundColor: "FFFFFF",
+        surfaceColor: "F7F9FC",
+        accentColor: "2563EB",
+        accentSoftColor: "DBEAFE",
+        textColor: "111827",
+        bodyColor: "3F4756",
+        borderColor: "D7E0EA"
+      })
+    );
+
+    const template = await generateTemplateForDeck(initialDeck, brief, settings, fetcher);
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const request = JSON.parse(fetcher.mock.calls[0][1]?.body as string);
+    expect(request.messages[0].content).toContain("演示模板设计师");
+    expect(request.messages[1].content).toContain("叙事地图 JSON");
+    expect(request.messages[1].content).toContain("问题引入");
+    expect(template).toMatchObject({
+      name: "AI Fresh Blue",
+      accentColor: "2563EB"
+    });
   });
 });
 

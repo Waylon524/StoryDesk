@@ -1,6 +1,20 @@
-import { Clock3, FileDown, FileText, KeyRound, Loader2, RotateCcw, Save, Sparkles, Upload, X } from "lucide-react";
+import {
+  Clock3,
+  FileDown,
+  FileText,
+  KeyRound,
+  Loader2,
+  Lock,
+  Palette,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Sparkles,
+  Upload,
+  X
+} from "lucide-react";
 import type { ChangeEvent, Dispatch, SetStateAction } from "react";
-import type { AiSettings, DeckBrief, DeckVersion } from "../types";
+import type { AiSettings, DeckBrief, DeckTemplate, DeckVersion } from "../types";
 
 interface AsyncStatus {
   status: "idle" | "working" | "done" | "error";
@@ -23,12 +37,15 @@ interface SettingsModalProps {
   settingsDraft: AiSettings;
   setSettingsDraft: Dispatch<SetStateAction<AiSettings>>;
   generationState: AsyncStatus;
+  deckTemplate: DeckTemplate;
+  templateGenerationState: AsyncStatus;
   versions: DeckVersion[];
   versionDraft: VersionDraft;
   setVersionDraft: Dispatch<SetStateAction<VersionDraft>>;
   projectState: ProjectStatus;
   onClose: () => void;
   onGenerateDeck: () => void;
+  onRegenerateTemplate: () => void;
   onSaveVersion: () => void;
   onRestoreVersion: (versionId: string) => void;
   onResetDeck: () => void;
@@ -43,12 +60,15 @@ export function SettingsModal({
   settingsDraft,
   setSettingsDraft,
   generationState,
+  deckTemplate,
+  templateGenerationState,
   versions,
   versionDraft,
   setVersionDraft,
   projectState,
   onClose,
   onGenerateDeck,
+  onRegenerateTemplate,
   onSaveVersion,
   onRestoreVersion,
   onResetDeck,
@@ -138,6 +158,48 @@ export function SettingsModal({
 
         <section className="settings-section">
           <div className="generate-title">
+            <Palette size={17} />
+            <strong>当前模板</strong>
+          </div>
+          <div className="template-card">
+            <div className="template-card-header">
+              <div>
+                <span className="section-label">模板名</span>
+                <strong>{deckTemplate.name}</strong>
+              </div>
+              <span className="template-lock">
+                <Lock size={14} />
+                模板已锁定
+              </span>
+            </div>
+            <div className="template-swatches" aria-label="当前模板色板">
+              {templateSwatches(deckTemplate).map((swatch) => (
+                <span className="template-swatch" key={swatch.label}>
+                  <span
+                    className="swatch-chip"
+                    style={{ backgroundColor: `#${swatch.color}` }}
+                    aria-label={`${swatch.label} #${swatch.color}`}
+                  />
+                  <span>{swatch.label}</span>
+                </span>
+              ))}
+            </div>
+            <button
+              className="secondary-action template-regenerate-button"
+              onClick={onRegenerateTemplate}
+              disabled={templateGenerationState.status === "working"}
+            >
+              {templateGenerationState.status === "working" ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+              重新生成模板
+            </button>
+            {templateGenerationState.message ? (
+              <p className={`status-message ${templateGenerationState.status}`}>{templateGenerationState.message}</p>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="generate-title">
             <Clock3 size={17} />
             <strong>版本管理</strong>
           </div>
@@ -223,6 +285,18 @@ export function SettingsModal({
       </section>
     </div>
   );
+}
+
+function templateSwatches(template: DeckTemplate) {
+  return [
+    { label: "背景", color: template.backgroundColor },
+    { label: "卡片", color: template.surfaceColor },
+    { label: "强调", color: template.accentColor },
+    { label: "柔和强调", color: template.accentSoftColor },
+    { label: "标题", color: template.textColor },
+    { label: "正文", color: template.bodyColor },
+    { label: "边框", color: template.borderColor }
+  ];
 }
 
 function formatVersionTime(value: string) {

@@ -31,6 +31,12 @@ export function useProjectVersions() {
     setProjectState({ status: "done", message: "已保存当前版本。" });
   }
 
+  function saveAutomaticVersion(deckState: DeckState, label: string, summary: string) {
+    const nextVersions = appendDeckVersion(deckState, label, undefined, new Date(), summary);
+    setVersions(nextVersions);
+    return nextVersions;
+  }
+
   function handleRestoreVersion({ currentDeck, versionId, onRestore }: RestoreDeckOptions) {
     const restoredDeck = restoreDeckVersion(versions, versionId);
     const version = versions.find((item) => item.id === versionId);
@@ -58,6 +64,7 @@ export function useProjectVersions() {
     projectState,
     setProjectState,
     handleSaveVersion,
+    saveAutomaticVersion,
     handleRestoreVersion
   };
 }

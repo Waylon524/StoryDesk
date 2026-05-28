@@ -68,8 +68,9 @@ The app stores the current project and version history in browser local storage.
 - AI rewrite for the currently selected slide.
 - Layout-aware slide preview and PPTX export.
 - LibreOffice-backed current-slide preview through a local Node service.
-- Fixed 16:9 slide preview, including on narrow screens.
+- Fixed 16:9 slide preview for the desktop workspace.
 - Stable deck template generated at deck creation time.
+- Template management with locked palette preview and AI template regeneration.
 - Local version management with manual save and restore.
 - Project export/import as `.storydeck.json`.
 - PPTX export through `pptxgenjs`.
@@ -89,11 +90,9 @@ The global settings modal contains narrative-map generation, API configuration, 
 
 ![StoryDeck settings and versions](docs/images/storydeck-settings-versions.png)
 
-### Fixed 16:9 Preview on Mobile
+### Fixed 16:9 Desktop Preview
 
-The slide preview keeps a fixed 16:9 canvas. On narrow screens, the canvas scrolls horizontally instead of changing shape.
-
-![StoryDeck fixed 16:9 mobile preview](docs/images/storydeck-mobile-16x9.png)
+The slide preview keeps a fixed 16:9 canvas in the desktop workspace, matching the PowerPoint export target.
 
 ## How to Use
 
@@ -157,7 +156,17 @@ StoryDeck creates a deck in two AI calls: the first call generates narrative nod
 
 Only the selected slide's title, body, bullets, and speaker note are rewritten. The narrative structure, other slides, and deck template stay unchanged.
 
-### 7. Save and Restore Versions
+### 7. Manage the Deck Template
+
+Open **Settings** and use **Current Template**:
+
+- Review the locked template name and palette.
+- Click **Regenerate Template** to ask AI for a new template based on the current narrative map.
+- StoryDeck automatically saves a version before regenerating the template.
+
+Regenerating a template changes the deck's visual language only. Narrative nodes, slide content, and slide layouts stay unchanged.
+
+### 8. Save and Restore Versions
 
 Open **Settings** and use **Version Management**:
 
@@ -168,11 +177,11 @@ Open **Settings** and use **Version Management**:
 
 Version history is local to the browser.
 
-### 8. Export a PPTX
+### 9. Export a PPTX
 
 Click **Export PPTX** in the top bar. StoryDeck exports the deck using the current content and the locked deck template.
 
-### 9. Export or Import a Project File
+### 10. Export or Import a Project File
 
 Open **Settings** and use **Project File**:
 
@@ -238,6 +247,7 @@ Implemented:
 - Fixed 16:9 preview.
 - Layout registry v1 for statement, three-point, process, and closing slides.
 - Stable deck template.
+- Locked template controls and AI template regeneration.
 - Local project persistence.
 - Project export/import.
 - Named version history with summaries and pre-restore autosave.
@@ -245,7 +255,7 @@ Implemented:
 
 Planned next:
 
-- Better template and layout selection controls.
+- Better layout selection controls.
 - Undo stack for quick local reversions.
 - Image and evidence attachment per slide.
 - Cloud sync or Git-backed project history.

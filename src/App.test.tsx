@@ -69,6 +69,58 @@ describe("StoryDeck application shell", () => {
     expect(within(statusPanel).getByText("127.0.0.1:5175")).toBeInTheDocument();
   });
 
+  it("shows locked template controls and regenerates the template with an automatic version", async () => {
+    window.localStorage.setItem(
+      "storydeck.aiSettings.v1",
+      JSON.stringify({
+        apiKey: "sk-test",
+        baseUrl: "https://api.deepseek.com",
+        model: "deepseek-v4-flash"
+      })
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    name: "AI Fresh Blue",
+                    aspectRatio: "16:9",
+                    backgroundColor: "FFFFFF",
+                    surfaceColor: "F7F9FC",
+                    accentColor: "2563EB",
+                    accentSoftColor: "DBEAFE",
+                    textColor: "111827",
+                    bodyColor: "3F4756",
+                    borderColor: "D7E0EA"
+                  })
+                }
+              }
+            ]
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "设置" }));
+    const dialog = screen.getByRole("dialog", { name: "全局设置" });
+    expect(within(dialog).getByText("当前模板")).toBeInTheDocument();
+    expect(within(dialog).getByText("Quiet Teal")).toBeInTheDocument();
+    expect(within(dialog).getByText("模板已锁定")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "重新生成模板" }));
+
+    expect(await within(dialog).findByText("AI Fresh Blue")).toBeInTheDocument();
+    expect(within(dialog).getByText("已重新生成并锁定模板，已自动保存变更前版本。")).toBeInTheDocument();
+    expect(within(dialog).getByText("模板重生成前自动保存")).toBeInTheDocument();
+  });
+
   it("lets the user save and restore a deck version from global settings", () => {
     render(<App />);
 
