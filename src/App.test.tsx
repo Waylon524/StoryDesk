@@ -58,6 +58,17 @@ describe("StoryDeck application shell", () => {
     expect(within(dialog).getByLabelText("导入项目")).toBeInTheDocument();
   });
 
+  it("shows LibreOffice preview service startup guidance from the slide preview", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "预览服务状态" }));
+
+    const statusPanel = screen.getByRole("region", { name: "LibreOffice 预览服务说明" });
+    expect(within(statusPanel).getByText("启动真实预览服务")).toBeInTheDocument();
+    expect(within(statusPanel).getByText("npm run preview-server")).toBeInTheDocument();
+    expect(within(statusPanel).getByText("127.0.0.1:5175")).toBeInTheDocument();
+  });
+
   it("lets the user save and restore a deck version from global settings", () => {
     render(<App />);
 

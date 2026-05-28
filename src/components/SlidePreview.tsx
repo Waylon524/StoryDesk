@@ -1,5 +1,5 @@
-import { ArrowDownUp, FileText, Loader2, MessageSquareText, Sparkles } from "lucide-react";
-import { type CSSProperties, useMemo } from "react";
+import { ArrowDownUp, FileText, Loader2, MessageSquareText, Server, Sparkles } from "lucide-react";
+import { type CSSProperties, useMemo, useState } from "react";
 import { getPreviewSlideLayout, resolveSlideLayoutKind } from "../lib/slideLayout";
 import type { DeckTemplate, Slide, StoryNode } from "../types";
 
@@ -26,6 +26,7 @@ export function SlidePreview({
   previewState,
   onAiRewriteSlide
 }: SlidePreviewProps) {
+  const [serviceGuideOpen, setServiceGuideOpen] = useState(false);
   const activeLayoutKind = resolveSlideLayoutKind(activeSlide.layout, activeNode.role);
   const activeLayout = getPreviewSlideLayout(activeLayoutKind);
   const slideTemplateStyle = useMemo(
@@ -87,9 +88,40 @@ export function SlidePreview({
             </div>
           </div>
         )}
-        <div className={`preview-render-status ${previewState.status}`}>
-          {previewState.status === "rendering" ? <Loader2 className="spin" size={14} /> : <FileText size={14} />}
-          <span>{previewState.message}</span>
+        <div className="preview-service-stack">
+          <div className="preview-status-row">
+            <div className={`preview-render-status ${previewState.status}`}>
+              {previewState.status === "rendering" ? <Loader2 className="spin" size={14} /> : <FileText size={14} />}
+              <span>{previewState.message}</span>
+            </div>
+            <button
+              className={`preview-service-button ${previewState.status}`}
+              type="button"
+              aria-expanded={serviceGuideOpen}
+              aria-controls="preview-service-guide"
+              onClick={() => setServiceGuideOpen((current) => !current)}
+            >
+              <Server size={14} />
+              预览服务状态
+            </button>
+          </div>
+          {serviceGuideOpen ? (
+            <section
+              id="preview-service-guide"
+              className="preview-service-guide"
+              role="region"
+              aria-label="LibreOffice 预览服务说明"
+            >
+              <div>
+                <strong>启动真实预览服务</strong>
+                <span>当前预览会优先使用 LibreOffice 渲染 PPTX，服务不可用时自动回退到编辑预览。</span>
+              </div>
+              <code>npm run preview-server</code>
+              <span>
+                默认地址：<code>127.0.0.1:5175</code>
+              </span>
+            </section>
+          ) : null}
         </div>
       </article>
     </section>
