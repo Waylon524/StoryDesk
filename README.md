@@ -67,6 +67,7 @@ The app stores the current project and version history in browser local storage.
 - Separate AI template generation after the narrative map is created.
 - AI rewrite for the currently selected slide.
 - Layout-aware slide preview and PPTX export.
+- Per-slide layout selection from the preview toolbar.
 - LibreOffice-backed current-slide preview through a local Node service.
 - Fixed 16:9 slide preview for the desktop workspace.
 - Stable deck template generated at deck creation time.
@@ -246,6 +247,7 @@ Implemented:
 - LibreOffice-backed current-slide preview.
 - Fixed 16:9 preview.
 - Layout registry v1 for statement, three-point, process, and closing slides.
+- Preview-toolbar layout selection for the current slide.
 - Stable deck template.
 - Locked template controls and AI template regeneration.
 - Local project persistence.
@@ -255,9 +257,9 @@ Implemented:
 
 Planned next:
 
-- Better layout selection controls.
 - Undo stack for quick local reversions.
 - Image and evidence attachment per slide.
+- Preview/export regression checks through LibreOffice-rendered images.
 - Cloud sync or Git-backed project history.
 
 ## Privacy and Local Data

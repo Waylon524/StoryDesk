@@ -3,6 +3,7 @@ dist/
 .playwright-cli/
 output/
 .DS_Store
+StoryDeck-demo.pptx
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
