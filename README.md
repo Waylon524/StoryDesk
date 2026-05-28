@@ -9,6 +9,8 @@
 
 ![StoryDeck workspace](docs/images/storydeck-workspace.png)
 
+作业材料 / Assignment materials: [AI Native PPT product design submission](assignment/README.md)
+
 ## 中文
 
 StoryDeck 是一个 AI Native PPT 叙事工作台，用来把一个粗糙的演示想法变成结构清晰、可编辑、可预览、可导出的 PowerPoint。它的核心理念很简单：好的 PPT 不是一页一页孤立堆出来的，而是来自清晰的叙事地图、稳定的视觉规则，以及对每一页表达意图的快速迭代。
