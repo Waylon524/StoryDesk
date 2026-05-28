@@ -288,7 +288,7 @@ StoryDeck 当前是 local-first：
 
 ### License
 
-当前尚未选择 License。公开分发或接受外部贡献前，建议先补充 License。
+本项目使用 [MIT License](LICENSE)。
 
 ---
 
@@ -571,4 +571,4 @@ Be careful when using real API keys in browser-based prototypes. For production 
 
 ### License
 
-No license has been selected yet. Add a license before distributing or accepting external contributions.
+This project is licensed under the [MIT License](LICENSE).
