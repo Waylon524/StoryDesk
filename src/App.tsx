@@ -28,7 +28,7 @@ import { initialDeck } from "./data/seedDeck";
 import { generateDeckFromBrief, rewriteSlideFromIntent } from "./lib/aiGeneration";
 import { loadAiSettings, saveAiSettings } from "./lib/aiSettings";
 import { applyIntentRewrite, applySlideRewrite, getActiveSlide, moveNode, selectNode } from "./lib/deckLogic";
-import { ensureDeckTemplate } from "./lib/deckTemplate";
+import { ensureDeckState } from "./lib/deckTemplate";
 import {
   clearSavedDeck,
   loadSavedDeck,
@@ -37,7 +37,7 @@ import {
   serializeDeckState
 } from "./lib/deckPersistence";
 import { appendDeckVersion, loadDeckVersions, restoreDeckVersion } from "./lib/deckVersions";
-import { getPptSlideLayout, pptWideCanvas } from "./lib/slideLayout";
+import { getPreviewSlideLayout, getPptSlideLayout, pptWideCanvas, resolveSlideLayoutKind } from "./lib/slideLayout";
 import type { AiSettings, DeckBrief, DeckState, DeckVersion, Slide, StoryNode } from "./types";
 
 interface RewriteCandidate {
@@ -48,7 +48,7 @@ interface RewriteCandidate {
 }
 
 function App() {
-  const [initialDeckState] = useState<DeckState>(() => loadSavedDeck() ?? initialDeck);
+  const [initialDeckState] = useState<DeckState>(() => ensureDeckState(loadSavedDeck() ?? initialDeck));
   const [deckState, setDeckState] = useState<DeckState>(initialDeckState);
   const [versions, setVersions] = useState<DeckVersion[]>(() => loadDeckVersions());
   const [intentDraft, setIntentDraft] = useState(
@@ -88,6 +88,8 @@ function App() {
     [deckState.activeNodeId, deckState.nodes]
   );
   const activeSlide = getActiveSlide(deckState);
+  const activeLayoutKind = resolveSlideLayoutKind(activeSlide.layout, activeNode.role);
+  const activeLayout = getPreviewSlideLayout(activeLayoutKind);
   const slideTemplateStyle = useMemo(
     () =>
       ({
@@ -225,7 +227,7 @@ function App() {
       }
 
       const next = await generateDeckFromBrief(brief, currentSettings);
-      setDeckState(ensureDeckTemplate(next));
+      setDeckState(ensureDeckState(next));
       setIntentDraft(next.nodes[0]?.intent ?? "");
       setGenerationState({ status: "done", message: "已生成新的叙事地图，可继续编辑节点意图。" });
       window.setTimeout(() => setGenerationState({ status: "idle", message: "" }), 2200);
@@ -239,7 +241,7 @@ function App() {
 
   function handleResetDeck() {
     clearSavedDeck();
-    setDeckState(ensureDeckTemplate(initialDeck));
+    setDeckState(ensureDeckState(initialDeck));
     setIntentDraft(initialDeck.nodes[0].intent);
     setBrief({
       topic: "校园二手交易平台",
@@ -269,7 +271,7 @@ function App() {
 
     try {
       const importedDeck = parseDeckJson(await file.text());
-      const nextDeck = ensureDeckTemplate(importedDeck);
+      const nextDeck = ensureDeckState(importedDeck);
       setDeckState(nextDeck);
       setIntentDraft(nextDeck.nodes.find((node) => node.id === nextDeck.activeNodeId)?.intent ?? nextDeck.nodes[0].intent);
       setBrief((current) => ({
@@ -303,7 +305,7 @@ function App() {
       return;
     }
 
-    const nextDeck = ensureDeckTemplate(restoredDeck);
+    const nextDeck = ensureDeckState(restoredDeck);
     setDeckState(nextDeck);
     setIntentDraft(nextDeck.nodes.find((node) => node.id === nextDeck.activeNodeId)?.intent ?? nextDeck.nodes[0].intent);
     setBrief((current) => ({
@@ -324,12 +326,12 @@ function App() {
     pptx.author = "StoryDeck";
     pptx.subject = deckState.deck.goal;
     const template = deckState.template;
-    const layout = getPptSlideLayout();
     deckState.nodes.forEach((node) => {
       const slideContent = deckState.slides.find((slide) => slide.nodeId === node.id);
       if (!slideContent) {
         return;
       }
+      const layout = getPptSlideLayout(resolveSlideLayoutKind(slideContent.layout, node.role));
       const slide = pptx.addSlide();
       slide.background = { color: template.backgroundColor };
       slide.addShape(pptx.ShapeType.rect, {
@@ -358,8 +360,12 @@ function App() {
         breakLine: false,
         fit: "shrink"
       });
-      slideContent.bullets.slice(0, 3).forEach((bullet, index) => {
+      slideContent.bullets.slice(0, layout.bulletCards.length).forEach((bullet, index) => {
         const card = layout.bulletCards[index];
+        const compactCard = card.h < 1;
+        const labelY = card.y + (compactCard ? 0.13 : 0.18);
+        const textY = card.y + (compactCard ? 0.39 : 0.58);
+        const textHeight = Math.max(card.h - (compactCard ? 0.5 : 0.72), 0.32);
         slide.addShape(pptx.ShapeType.roundRect, {
           ...card,
           fill: { color: template.surfaceColor },
@@ -367,7 +373,7 @@ function App() {
         });
         slide.addText(String(index + 1).padStart(2, "0"), {
           x: card.x + 0.17,
-          y: card.y + 0.18,
+          y: labelY,
           w: 0.45,
           h: 0.18,
           fontSize: 9,
@@ -377,10 +383,10 @@ function App() {
         });
         slide.addText(bullet, {
           x: card.x + 0.17,
-          y: card.y + 0.58,
+          y: textY,
           w: card.w - 0.34,
-          h: card.h - 0.72,
-          fontSize: 13,
+          h: textHeight,
+          fontSize: compactCard ? 12 : 13,
           bold: true,
           color: template.textColor,
           breakLine: false,
@@ -455,6 +461,7 @@ function App() {
             <div>
               <span className="toolbar-label">Slide Preview</span>
               <strong>{activeNode.title}</strong>
+              <small>{activeLayout.label}</small>
             </div>
             <div className="toolbar-actions">
               <button><FileText size={15} /> 页面</button>
@@ -466,12 +473,12 @@ function App() {
             </div>
           </div>
           <article className="slide-stage" aria-label="当前幻灯片预览">
-            <div className="slide-card" style={slideTemplateStyle}>
+            <div className={`slide-card ${activeLayout.className}`} style={slideTemplateStyle}>
               <div className="slide-kicker">{activeNode.role} · {activeNode.duration}</div>
               <h1>{activeSlide.title}</h1>
               <p>{activeSlide.body}</p>
               <div className="slide-grid">
-                {activeSlide.bullets.slice(0, 3).map((bullet, index) => (
+                {activeSlide.bullets.slice(0, activeLayout.bulletCards.length).map((bullet, index) => (
                   <div className="slide-point" key={bullet}>
                     <span>{String(index + 1).padStart(2, "0")}</span>
                     <strong>{bullet}</strong>

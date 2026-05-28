@@ -1,4 +1,5 @@
 export type NodeRole = "开场" | "共鸣" | "冲突" | "论证" | "转折" | "行动" | "收束";
+export type SlideLayoutKind = "statement" | "three-point" | "process" | "closing";
 
 export interface StoryNode {
   id: string;
@@ -13,6 +14,7 @@ export interface StoryNode {
 export interface Slide {
   id: string;
   nodeId: string;
+  layout: SlideLayoutKind;
   title: string;
   body: string;
   bullets: string[];

@@ -48,6 +48,7 @@ describe("ai deck generation", () => {
                       role: "开场",
                       duration: "0:45",
                       slide: {
+                        layout: "statement",
                         title: "闲置物品不是没有价值，而是难以被安全成交",
                         body: "毕业季集中释放供给，但校内买卖双方仍被信任、定价和交付阻碍。",
                         bullets: ["供给集中释放", "信任成本高", "交付难约定"],
@@ -60,6 +61,7 @@ describe("ai deck generation", () => {
                       role: "转折",
                       duration: "1:00",
                       slide: {
+                        layout: "process",
                         title: "把交易成本拆成四个可降低环节",
                         body: "围绕发布、匹配、认证和交付建立闭环。",
                         bullets: ["标准化发布", "校内身份认证", "预约交付"],
@@ -92,6 +94,7 @@ describe("ai deck generation", () => {
     const request = JSON.parse(firstCall[1]?.body as string);
     expect(request.model).toBe("deepseek-v4-flash");
     expect(request.messages[1].content).toContain("校园二手交易平台");
+    expect(request.messages[1].content).toContain("statement|three-point|process|closing");
     expect(deck.nodes).toHaveLength(2);
     expect(deck.nodes[0]).toMatchObject({
       id: "ai-node-1",
@@ -101,8 +104,10 @@ describe("ai deck generation", () => {
     expect(deck.slides[0]).toMatchObject({
       id: "ai-slide-1",
       nodeId: "ai-node-1",
+      layout: "statement",
       title: "闲置物品不是没有价值，而是难以被安全成交"
     });
+    expect(deck.slides[1].layout).toBe("process");
   });
 
   it("rewrites only the selected slide from the node intent context", async () => {
@@ -178,6 +183,7 @@ describe("ai deck generation", () => {
                       role: "开场",
                       duration: "0:45",
                       slide: {
+                        layout: "unknown",
                         title: "一个具体问题",
                         body: "用故事打开。",
                         bullets: ["场景", "阻碍", "机会"],
@@ -201,5 +207,6 @@ describe("ai deck generation", () => {
       backgroundColor: expect.any(String),
       accentColor: expect.any(String)
     });
+    expect(deck.slides[0].layout).toBe("statement");
   });
 });

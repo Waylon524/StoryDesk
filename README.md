@@ -2,7 +2,7 @@
 
 StoryDeck is an AI-native slide narrative workspace for turning a rough presentation idea into a structured, editable, and exportable deck. It is designed around a simple belief: great slides are not made one page at a time in isolation. They come from a clear story map, stable visual rules, and fast iteration on intent.
 
-The current MVP focuses on pitch and analysis decks. It lets you define a global presentation goal, generate a narrative map, edit each node's communication intent, rewrite a single slide with an OpenAI-compatible model, keep a fixed 16:9 preview, lock a deck template for consistency, save local versions, and export a PPTX.
+The current MVP focuses on pitch and analysis decks. It lets you define a global presentation goal, generate a narrative map, edit each node's communication intent, rewrite a single slide with an OpenAI-compatible model, keep a fixed 16:9 preview, assign stable slide layouts, lock a deck template for consistency, save local versions, and export a PPTX.
 
 ![StoryDeck workspace](docs/images/storydeck-workspace.png)
 
@@ -36,7 +36,11 @@ You can reorder nodes, select a node, inspect its risk prompt, and edit the node
 
 When a new narrative map is generated, StoryDeck creates a deck template with a fixed 16:9 aspect ratio and a consistent palette. Later slide rewrites do not change that template. This protects visual consistency while allowing content to evolve.
 
-### 4. AI as a Focused Rewrite Tool
+### 4. Layout Registry
+
+Each slide carries a layout kind such as scene statement, three-point argument, process path, or closing action. The web preview and PPTX export both read from the same layout registry, so a page's structure is not reinterpreted differently during export.
+
+### 5. AI as a Focused Rewrite Tool
 
 StoryDeck supports OpenAI-compatible chat completions. The current AI flow can:
 
@@ -46,7 +50,7 @@ StoryDeck supports OpenAI-compatible chat completions. The current AI flow can:
 
 The default test configuration uses a DeepSeek-compatible endpoint shape, but the settings are editable.
 
-### 5. Local-First Project State
+### 6. Local-First Project State
 
 The app stores the current project and version history in browser local storage. It also supports exporting and importing `.storydeck.json` project files. API settings are kept separate from project exports.
 
@@ -57,6 +61,7 @@ The app stores the current project and version history in browser local storage.
 - OpenAI-compatible API settings: API key, base URL, and model name.
 - AI generation for a fresh narrative map.
 - AI rewrite for the currently selected slide.
+- Layout-aware slide preview and PPTX export.
 - Fixed 16:9 slide preview, including on narrow screens.
 - Stable deck template generated at deck creation time.
 - Local version management with manual save and restore.
@@ -162,6 +167,7 @@ StoryDeck/
     lib/aiSettings.ts          # Local AI settings persistence
     lib/deckLogic.ts           # Narrative and slide state transitions
     lib/deckPersistence.ts     # Project save/import/export helpers
+    lib/slideLayout.ts         # Shared web/PPTX layout registry
     lib/deckTemplate.ts        # Stable deck template creation and migration
     lib/deckVersions.ts        # Local version history
     styles.css                 # App layout and fixed 16:9 slide canvas
@@ -198,6 +204,7 @@ Implemented:
 - AI narrative-map generation.
 - AI single-slide rewrite.
 - Fixed 16:9 preview.
+- Layout registry v1 for statement, three-point, process, and closing slides.
 - Stable deck template.
 - Local project persistence.
 - Project export/import.
@@ -206,9 +213,8 @@ Implemented:
 
 Planned next:
 
-- Better template selection and preview.
+- Better template and layout selection controls.
 - Undo stack for quick local reversions.
-- Richer slide layouts beyond the current single template.
 - Image and evidence attachment per slide.
 - Cloud sync or Git-backed project history.
 

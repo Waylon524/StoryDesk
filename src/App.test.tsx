@@ -44,6 +44,7 @@ describe("StoryDeck application shell", () => {
 
     expect(screen.getByRole("heading", { name: "核心矛盾" })).toBeInTheDocument();
     expect(screen.getByText("恢复上次编辑状态。")).toBeInTheDocument();
+    expect(screen.getByText("三点论证")).toBeInTheDocument();
   });
 
   it("exposes reset, export, and import controls in global settings", () => {

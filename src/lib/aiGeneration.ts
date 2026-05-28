@@ -1,6 +1,7 @@
 import { normalizeBaseUrl } from "./aiSettings";
 import { createDeckTemplate } from "./deckTemplate";
-import type { AiSettings, DeckBrief, DeckState, NodeRole, Slide } from "../types";
+import { resolveSlideLayoutKind } from "./slideLayout";
+import type { AiSettings, DeckBrief, DeckState, NodeRole, Slide, SlideLayoutKind } from "../types";
 
 type Fetcher = typeof fetch;
 
@@ -10,6 +11,7 @@ interface GeneratedNode {
   role: string;
   duration: string;
   slide: {
+    layout?: SlideLayoutKind;
     title: string;
     body: string;
     bullets: string[];
@@ -156,9 +158,10 @@ function buildDeckPrompt(brief: DeckBrief) {
     '  "deck": { "title": "...", "audience": "...", "goal": "...", "tone": "...", "duration": "..." },',
     '  "nodes": [',
     '    { "title": "...", "intent": "...", "role": "开场|共鸣|冲突|论证|转折|行动|收束", "duration": "0:45",',
-    '      "slide": { "title": "...", "body": "...", "bullets": ["..."], "note": "..." } }',
+    '      "slide": { "layout": "statement|three-point|process|closing", "title": "...", "body": "...", "bullets": ["..."], "note": "..." } }',
     "  ]",
     "}",
+    "布局建议：开场/共鸣适合 statement，冲突/论证适合 three-point，解决路径适合 process，行动/收束适合 closing。",
     "要求：标题具体，正文不空泛，bullets 每页 3 到 4 条，整体结构先问题后解决再行动。",
     "除非用户在主题中提供了明确数字，否则不要编造具体统计数据；需要数据时写成“待验证假设”或“建议补充调研数据”。"
   ].join("\n");
@@ -234,6 +237,7 @@ function payloadToDeckState(payload: GeneratedDeckPayload, brief: DeckBrief): De
     return {
       id: `ai-slide-${index + 1}`,
       nodeId: `ai-node-${index + 1}`,
+      layout: resolveSlideLayoutKind(slide?.layout, nodes[index]?.role),
       title: slide?.title || node.title || `幻灯片 ${index + 1}`,
       body: slide?.body || node.intent || "这里需要补充页面正文。",
       bullets: Array.isArray(slide?.bullets) && slide.bullets.length > 0 ? slide.bullets.slice(0, 4) : ["补充关键论点"],

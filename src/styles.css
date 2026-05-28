@@ -76,10 +76,16 @@ button,
 
 .brand-lockup span,
 .panel-header span,
-.toolbar-label {
+.toolbar-label,
+.canvas-toolbar small {
   color: #667085;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.canvas-toolbar small {
+  display: block;
+  margin-top: 2px;
 }
 
 .deck-meta {
@@ -321,6 +327,27 @@ button:disabled {
 }
 
 .slide-card {
+  --kicker-x: 56px;
+  --kicker-y: 122px;
+  --kicker-w: 320px;
+  --title-x: 56px;
+  --title-y: 155px;
+  --title-w: 740px;
+  --title-h: 58px;
+  --body-x: 56px;
+  --body-y: 226px;
+  --body-w: 710px;
+  --body-h: 52px;
+  --grid-x: 56px;
+  --grid-y: 302px;
+  --grid-w: 748px;
+  --grid-columns: 3;
+  --grid-gap: 14px;
+  --point-h: 86px;
+  --note-x: 56px;
+  --note-y: 424px;
+  --note-w: 720px;
+  --accent-band: 36%;
   width: 850px;
   height: 478.125px;
   aspect-ratio: 16 / 9;
@@ -328,7 +355,11 @@ button:disabled {
   display: block;
   border-radius: 8px;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--slide-accent-soft) 55%, transparent), transparent 36%),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--slide-accent-soft) 55%, transparent) 0 var(--accent-band),
+      transparent var(--accent-band)
+    ),
     var(--slide-bg, #ffffff);
   border: 1px solid var(--slide-border, #dce4eb);
   box-shadow: 0 26px 80px rgba(15, 23, 42, 0.16);
@@ -337,11 +368,59 @@ button:disabled {
   flex: 0 0 auto;
 }
 
+.slide-card.layout-statement {
+  --kicker-y: 112px;
+  --title-y: 148px;
+  --title-w: 690px;
+  --title-h: 72px;
+  --body-y: 244px;
+  --body-w: 640px;
+  --body-h: 58px;
+  --grid-y: 340px;
+  --point-h: 64px;
+}
+
+.slide-card.layout-process {
+  --kicker-y: 78px;
+  --title-y: 112px;
+  --title-w: 720px;
+  --title-h: 58px;
+  --body-y: 190px;
+  --body-w: 690px;
+  --body-h: 48px;
+  --grid-y: 288px;
+  --grid-w: 730px;
+  --grid-columns: 4;
+  --point-h: 92px;
+  --accent-band: 31%;
+}
+
+.slide-card.layout-closing {
+  --kicker-x: 70px;
+  --kicker-y: 104px;
+  --title-x: 70px;
+  --title-y: 142px;
+  --title-w: 680px;
+  --title-h: 76px;
+  --body-x: 70px;
+  --body-y: 244px;
+  --body-w: 640px;
+  --body-h: 52px;
+  --grid-x: 70px;
+  --grid-y: 338px;
+  --grid-w: 662px;
+  --grid-gap: 16px;
+  --point-h: 58px;
+  --note-x: 70px;
+  --note-w: 680px;
+  --accent-band: 100%;
+}
+
 .slide-kicker {
   position: absolute;
-  left: 56px;
-  top: 122px;
-  width: 320px;
+  left: var(--kicker-x);
+  top: var(--kicker-y);
+  width: var(--kicker-w);
   height: 20px;
   color: var(--slide-accent, #0f766e);
   font-size: 14px;
@@ -351,10 +430,10 @@ button:disabled {
 
 .slide-card h1 {
   position: absolute;
-  left: 56px;
-  top: 155px;
-  width: 740px;
-  min-height: 58px;
+  left: var(--title-x);
+  top: var(--title-y);
+  width: var(--title-w);
+  min-height: var(--title-h);
   margin: 0;
   color: var(--slide-text, #111827);
   font-size: 42px;
@@ -364,10 +443,10 @@ button:disabled {
 
 .slide-card p {
   position: absolute;
-  left: 56px;
-  top: 226px;
-  width: 710px;
-  min-height: 52px;
+  left: var(--body-x);
+  top: var(--body-y);
+  width: var(--body-w);
+  min-height: var(--body-h);
   margin: 0;
   color: var(--slide-body, #4b5563);
   font-size: 18px;
@@ -376,12 +455,12 @@ button:disabled {
 
 .slide-grid {
   position: absolute;
-  left: 56px;
-  top: 302px;
-  width: 748px;
+  left: var(--grid-x);
+  top: var(--grid-y);
+  width: var(--grid-w);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: var(--grid-gap);
 }
 
 .slide-point {
@@ -389,7 +468,7 @@ button:disabled {
   border-radius: 8px;
   background: var(--slide-surface, #f8fafc);
   padding: 13px;
-  height: 86px;
+  height: var(--point-h);
 }
 
 .slide-point span {
@@ -409,9 +488,9 @@ button:disabled {
 
 .speaker-note {
   position: absolute;
-  left: 56px;
-  top: 424px;
-  width: 720px;
+  left: var(--note-x);
+  top: var(--note-y);
+  width: var(--note-w);
   height: 28px;
   display: flex;
   align-items: center;
@@ -836,8 +915,7 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .canvas-toolbar,
-  .slide-grid {
+  .canvas-toolbar {
     grid-template-columns: 1fr;
   }
 
@@ -867,7 +945,4 @@ button:disabled {
     width: 850px;
   }
 
-  .slide-grid {
-    display: grid;
-  }
 }

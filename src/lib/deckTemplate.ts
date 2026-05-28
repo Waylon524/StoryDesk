@@ -1,4 +1,5 @@
 import type { DeckBrief, DeckState, DeckTemplate } from "../types";
+import { resolveSlideLayoutKind } from "./slideLayout";
 
 export const defaultDeckTemplate: DeckTemplate = {
   id: "template-quiet-teal",
@@ -65,6 +66,21 @@ export function ensureDeckTemplate(deckState: DeckState | Omit<DeckState, "templ
   return {
     ...(deckState as Omit<DeckState, "template">),
     template: defaultDeckTemplate
+  };
+}
+
+export function ensureDeckState(deckState: DeckState | Omit<DeckState, "template">): DeckState {
+  const stateWithTemplate = ensureDeckTemplate(deckState);
+
+  return {
+    ...stateWithTemplate,
+    slides: stateWithTemplate.slides.map((slide) => {
+      const node = stateWithTemplate.nodes.find((item) => item.id === slide.nodeId);
+      return {
+        ...slide,
+        layout: resolveSlideLayoutKind((slide as Partial<DeckState["slides"][number]>).layout, node?.role)
+      };
+    })
   };
 }
 

@@ -1,5 +1,5 @@
 import type { DeckState } from "../types";
-import { ensureDeckTemplate } from "./deckTemplate";
+import { ensureDeckState } from "./deckTemplate";
 
 export const DECK_STORAGE_KEY = "storydeck.deckState.v1";
 
@@ -60,7 +60,7 @@ export function parseDeckJson(json: string): DeckState {
     throw new Error("不是有效的 StoryDeck 项目文件。");
   }
 
-  return ensureDeckTemplate(deckState);
+  return ensureDeckState(deckState);
 }
 
 function isDeckState(value: unknown): value is DeckState {

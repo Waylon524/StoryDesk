@@ -1,5 +1,5 @@
 import type { DeckState, DeckVersion } from "../types";
-import { ensureDeckTemplate } from "./deckTemplate";
+import { ensureDeckState } from "./deckTemplate";
 
 export const VERSION_HISTORY_STORAGE_KEY = "storydeck.versionHistory.v1";
 const MAX_VERSIONS = 10;
@@ -22,7 +22,7 @@ export function loadDeckVersions(storage = getStorage()): DeckVersion[] {
 
     return parsed.filter(isDeckVersion).map((version) => ({
       ...version,
-      deckState: ensureDeckTemplate(version.deckState)
+      deckState: ensureDeckState(version.deckState)
     }));
   } catch {
     storage.removeItem(VERSION_HISTORY_STORAGE_KEY);
@@ -40,7 +40,7 @@ export function appendDeckVersion(
     id: `version-${createdAt.getTime()}`,
     label,
     createdAt: createdAt.toISOString(),
-    deckState: ensureDeckTemplate(deckState)
+    deckState: ensureDeckState(deckState)
   };
   const versions = [version, ...loadDeckVersions(storage)].slice(0, MAX_VERSIONS);
   saveDeckVersions(versions, storage);

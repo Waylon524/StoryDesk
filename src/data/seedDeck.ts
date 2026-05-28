@@ -91,6 +91,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-1",
       nodeId: "node-1",
+      layout: "statement",
       title: "校园二手交易存在的问题",
       body: "信息分散、信任不足、交易效率低，让一件小事变成一个大问题。",
       bullets: ["信息分散", "信任不足", "交易效率低"],
@@ -99,6 +100,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-2",
       nodeId: "node-2",
+      layout: "statement",
       title: "毕业季之前，闲置物品开始堆积",
       body: "耳机、教材、小家电和运动装备在寝室之间流动，却很难被稳定发现。",
       bullets: ["毕业搬迁集中释放供给", "同校交易天然降低距离成本", "真实需求被分散渠道稀释"],
@@ -107,6 +109,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-3",
       nodeId: "node-3",
+      layout: "three-point",
       title: "不是没有需求，而是交易成本太高",
       body: "买卖双方都担心状态不透明、沟通反复和见面履约的不确定性。",
       bullets: ["物品状态难验证", "价格缺少参照", "沟通和交付反复"],
@@ -115,6 +118,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-4",
       nodeId: "node-4",
+      layout: "process",
       title: "把交易流程拆成可被降低的成本",
       body: "平台围绕发布、匹配、信任和履约四个环节减少摩擦。",
       bullets: ["标准化发布", "校内身份认证", "价格参考", "预约交付"],
@@ -123,6 +127,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-5",
       nodeId: "node-5",
+      layout: "three-point",
       title: "商业模式建立在高频小额服务上",
       body: "基础交易免费，增值服务围绕认证、保障和校园合作展开。",
       bullets: ["担保服务费", "认证与质检", "校园渠道合作"],
@@ -131,6 +136,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-6",
       nodeId: "node-6",
+      layout: "three-point",
       title: "交易频次来自真实校园周期",
       body: "开学、毕业、搬寝和课程更替构成可预期的周期性需求。",
       bullets: ["毕业季供给集中", "开学季需求集中", "教材与电子产品复购明显"],
@@ -139,6 +145,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-7",
       nodeId: "node-7",
+      layout: "closing",
       title: "先验证一个校区，再复制到更多校园",
       body: "用一个样板校区验证供给密度、成交率和履约体验。",
       bullets: ["30天冷启动", "1000件有效供给", "校内履约闭环"],
@@ -147,6 +154,7 @@ export const initialDeck: DeckState = {
     {
       id: "slide-8",
       nodeId: "node-8",
+      layout: "closing",
       title: "从闲置物品开始，重建校园信任交易",
       body: "StoryDeck 展示的是一个可被验证、可复制、可扩展的校园交易切入点。",
       bullets: ["需求真实", "路径清晰", "增长可复制"],

@@ -42,6 +42,7 @@ describe("deck narrative state", () => {
     expect(state.activeNodeId).toBe("node-3");
     expect(state.nodes.find((node) => node.id === "node-3")?.intent).toBe("把矛盾写成三段阻碍");
     expect(state.slides.find((slide) => slide.nodeId === "node-3")).toMatchObject({
+      layout: "three-point",
       title: "交易失败不是偶然，而是三段成本叠加",
       bullets: ["状态验证成本", "价格判断成本", "线下履约成本"]
     });
@@ -57,5 +58,6 @@ describe("deck narrative state", () => {
     });
 
     expect(state.template).toEqual(initialDeck.template);
+    expect(state.slides.find((slide) => slide.nodeId === "node-3")?.layout).toBe("three-point");
   });
 });
