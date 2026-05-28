@@ -22,6 +22,7 @@ export function loadDeckVersions(storage = getStorage()): DeckVersion[] {
 
     return parsed.filter(isDeckVersion).map((version) => ({
       ...version,
+      summary: normalizeVersionSummary(version.summary, version.deckState),
       deckState: ensureDeckState(version.deckState)
     }));
   } catch {
@@ -34,11 +35,13 @@ export function appendDeckVersion(
   deckState: DeckState,
   label = "手动保存",
   storage = getStorage(),
-  createdAt = new Date()
+  createdAt = new Date(),
+  summary = createVersionSummary(deckState)
 ): DeckVersion[] {
   const version: DeckVersion = {
     id: `version-${createdAt.getTime()}`,
-    label,
+    label: normalizeVersionLabel(label),
+    summary: normalizeVersionSummary(summary, deckState),
     createdAt: createdAt.toISOString(),
     deckState: ensureDeckState(deckState)
   };
@@ -68,6 +71,20 @@ function isDeckVersion(value: unknown): value is DeckVersion {
       version.deckState &&
       typeof version.deckState === "object"
   );
+}
+
+function normalizeVersionLabel(label: string) {
+  const trimmed = label.trim();
+  return trimmed || "手动保存";
+}
+
+function normalizeVersionSummary(summary: string | undefined, deckState: DeckState) {
+  const trimmed = summary?.trim();
+  return trimmed || createVersionSummary(deckState);
+}
+
+function createVersionSummary(deckState: DeckState) {
+  return `${deckState.nodes.length} 个叙事节点 · 当前页：${deckState.nodes.find((node) => node.id === deckState.activeNodeId)?.title ?? deckState.nodes[0]?.title ?? "未命名"}`;
 }
 
 function getStorage(): Storage | undefined {

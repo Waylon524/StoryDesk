@@ -63,11 +63,21 @@ describe("StoryDeck application shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "设置" }));
     const dialog = screen.getByRole("dialog", { name: "全局设置" });
+    fireEvent.change(within(dialog).getByLabelText("版本名称"), {
+      target: { value: "初版结构" }
+    });
+    fireEvent.change(within(dialog).getByLabelText("变更摘要"), {
+      target: { value: "恢复前的基准版本。" }
+    });
     fireEvent.click(within(dialog).getByRole("button", { name: "保存当前版本" }));
+    expect(within(dialog).getByText("初版结构")).toBeInTheDocument();
+    expect(within(dialog).getByText("恢复前的基准版本。")).toBeInTheDocument();
+
     fireEvent.click(within(dialog).getByRole("button", { name: "重置为示例 Deck" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "恢复" }));
 
-    expect(screen.getByText("已恢复版本：手动保存。")).toBeInTheDocument();
+    expect(screen.getByText("已恢复版本：初版结构。")).toBeInTheDocument();
+    expect(within(dialog).getByText("恢复前自动保存")).toBeInTheDocument();
   });
 
   it("shows a node-level AI rewrite error when API settings are missing", async () => {

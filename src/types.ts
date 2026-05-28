@@ -65,6 +65,7 @@ export interface DeckBrief {
 export interface DeckVersion {
   id: string;
   label: string;
+  summary: string;
   createdAt: string;
   deckState: DeckState;
 }

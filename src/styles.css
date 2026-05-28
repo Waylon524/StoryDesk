@@ -556,7 +556,8 @@ button:disabled {
 }
 
 .version-row strong,
-.version-row span {
+.version-row span,
+.version-row p {
   display: block;
 }
 
@@ -565,9 +566,15 @@ button:disabled {
 }
 
 .version-row span,
+.version-row p,
 .empty-version {
   color: #667085;
   font-size: 12px;
+}
+
+.version-row p {
+  margin: 4px 0 0;
+  line-height: 1.45;
 }
 
 .empty-version {

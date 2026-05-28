@@ -61,6 +61,10 @@ function App() {
   const [settingsDraft, setSettingsDraft] = useState<AiSettings>(() => loadAiSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [versionDraft, setVersionDraft] = useState({
+    label: "",
+    summary: ""
+  });
   const [brief, setBrief] = useState<DeckBrief>({
     topic: "校园二手交易平台",
     audience: initialDeckState.deck.audience,
@@ -123,7 +127,12 @@ function App() {
           setPreviewState((current) => ({
             status: "error",
             imageUrl: current.imageUrl,
-            message: error instanceof Error ? error.message : "LibreOffice 预览服务不可用，已回退到编辑预览。"
+            message:
+              error instanceof TypeError
+                ? "LibreOffice 预览服务未连接，已回退到编辑预览。请运行 npm run preview-server。"
+                : error instanceof Error
+                  ? error.message
+                  : "LibreOffice 预览服务不可用，已回退到编辑预览。"
           }));
         });
     }, 800);
@@ -351,8 +360,9 @@ function App() {
   }
 
   function handleSaveVersion() {
-    const nextVersions = appendDeckVersion(deckState, "手动保存");
+    const nextVersions = appendDeckVersion(deckState, versionDraft.label || "手动保存", undefined, new Date(), versionDraft.summary);
     setVersions(nextVersions);
+    setVersionDraft({ label: "", summary: "" });
     setProjectState({ status: "done", message: "已保存当前版本。" });
   }
 
@@ -364,8 +374,16 @@ function App() {
       return;
     }
 
+    const nextVersions = appendDeckVersion(
+      deckState,
+      "恢复前自动保存",
+      undefined,
+      new Date(),
+      `恢复「${version.label}」前的当前状态。`
+    );
     const nextDeck = ensureDeckState(restoredDeck);
     setDeckState(nextDeck);
+    setVersions(nextVersions);
     setIntentDraft(nextDeck.nodes.find((node) => node.id === nextDeck.activeNodeId)?.intent ?? nextDeck.nodes[0].intent);
     setBrief((current) => ({
       ...current,
@@ -649,6 +667,20 @@ function App() {
                 <Clock3 size={17} />
                 <strong>版本管理</strong>
               </div>
+              <label htmlFor="version-label">版本名称</label>
+              <input
+                id="version-label"
+                value={versionDraft.label}
+                placeholder="例如：AI 模板生成前"
+                onChange={(event) => setVersionDraft((current) => ({ ...current, label: event.target.value }))}
+              />
+              <label htmlFor="version-summary">变更摘要</label>
+              <textarea
+                id="version-summary"
+                value={versionDraft.summary}
+                placeholder="记录这次版本的关键变化，留空则自动生成摘要。"
+                onChange={(event) => setVersionDraft((current) => ({ ...current, summary: event.target.value }))}
+              />
               <div className="project-actions">
                 <button className="secondary-action" onClick={handleSaveVersion}>
                   <Save size={16} />
@@ -662,6 +694,7 @@ function App() {
                       <div>
                         <strong>{version.label}</strong>
                         <span>{formatVersionTime(version.createdAt)}</span>
+                        <p>{version.summary}</p>
                       </div>
                       <button className="secondary-action" onClick={() => handleRestoreVersion(version.id)}>
                         恢复

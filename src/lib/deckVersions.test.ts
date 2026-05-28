@@ -19,6 +19,7 @@ describe("deck version history", () => {
     expect(versions).toHaveLength(1);
     expect(versions[0]).toMatchObject({
       label: "初版结构",
+      summary: "8 个叙事节点 · 当前页：问题引入",
       deckState: {
         deck: {
           title: initialDeck.deck.title
@@ -28,6 +29,38 @@ describe("deck version history", () => {
     expect(JSON.stringify(versions)).not.toContain("apiKey");
     expect(restoreDeckVersion(versions, versions[0].id)?.deck.title).toBe(initialDeck.deck.title);
     expect(loadDeckVersions(storage)).toHaveLength(1);
+  });
+
+  it("saves custom version summaries and migrates legacy versions without summaries", () => {
+    const storage = createStorage();
+    appendDeckVersion(
+      initialDeck,
+      "AI 改写前",
+      storage,
+      new Date("2026-05-26T08:00:00.000Z"),
+      "保留原始叙事结构，准备测试 AI 模板。"
+    );
+
+    const versions = loadDeckVersions(storage);
+
+    expect(versions[0]).toMatchObject({
+      label: "AI 改写前",
+      summary: "保留原始叙事结构，准备测试 AI 模板。"
+    });
+
+    storage.setItem(
+      "storydeck.versionHistory.v1",
+      JSON.stringify([
+        {
+          id: "legacy-version",
+          label: "旧版本",
+          createdAt: "2026-05-26T08:00:00.000Z",
+          deckState: initialDeck
+        }
+      ])
+    );
+
+    expect(loadDeckVersions(storage)[0].summary).toBe("8 个叙事节点 · 当前页：问题引入");
   });
 
   it("keeps the newest ten versions", () => {

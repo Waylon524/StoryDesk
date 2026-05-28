@@ -162,7 +162,9 @@ Only the selected slide's title, body, bullets, and speaker note are rewritten. 
 Open **Settings** and use **Version Management**:
 
 - Click **Save Current Version** before a larger rewrite or structural change.
+- Add a version name and change summary when you want the restore point to be self-explanatory.
 - Click **Restore** on a saved version to return to that snapshot.
+- Before restoring, StoryDeck automatically saves the current state as **恢复前自动保存** so the latest work is not lost.
 
 Version history is local to the browser.
 
@@ -238,7 +240,7 @@ Implemented:
 - Stable deck template.
 - Local project persistence.
 - Project export/import.
-- Manual version history.
+- Named version history with summaries and pre-restore autosave.
 - PPTX export.
 
 Planned next:
