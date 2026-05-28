@@ -1,239 +1,72 @@
-import type { DragEndEvent } from "@dnd-kit/core";
 import { Download, Settings } from "lucide-react";
-import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useState } from "react";
 import { IntentPanel } from "./components/IntentPanel";
 import { NarrativeMap } from "./components/NarrativeMap";
 import { SettingsModal } from "./components/SettingsModal";
 import { SlidePreview } from "./components/SlidePreview";
-import { initialDeck } from "./data/seedDeck";
-import { generateDeckFromBrief, rewriteSlideFromIntent } from "./lib/aiGeneration";
+import { useAiRewrite } from "./hooks/useAiRewrite";
+import { useDeckWorkspace } from "./hooks/useDeckWorkspace";
+import { useLibreOfficePreview } from "./hooks/useLibreOfficePreview";
+import { useProjectVersions } from "./hooks/useProjectVersions";
+import { generateDeckFromBrief } from "./lib/aiGeneration";
 import { loadAiSettings, saveAiSettings } from "./lib/aiSettings";
-import { applyIntentRewrite, applySlideRewrite, getActiveSlide, moveNode, selectNode } from "./lib/deckLogic";
 import { ensureDeckState } from "./lib/deckTemplate";
-import {
-  clearSavedDeck,
-  loadSavedDeck,
-  parseDeckJson,
-  saveDeckState,
-  serializeDeckState
-} from "./lib/deckPersistence";
-import { appendDeckVersion, loadDeckVersions, restoreDeckVersion } from "./lib/deckVersions";
-import { renderSlidePreviewImage } from "./lib/libreOfficePreview";
+import { parseDeckJson, serializeDeckState } from "./lib/deckPersistence";
 import { exportDeckPptx } from "./lib/pptxExport";
-import type { AiSettings, DeckBrief, DeckState, DeckVersion, Slide } from "./types";
-
-interface RewriteCandidate {
-  nodeId: string;
-  intent: string;
-  originalSlide: Slide;
-  rewrittenSlide: Pick<Slide, "title" | "body" | "bullets" | "note">;
-}
+import type { AiSettings } from "./types";
 
 function App() {
-  const [initialDeckState] = useState<DeckState>(() => ensureDeckState(loadSavedDeck() ?? initialDeck));
-  const [deckState, setDeckState] = useState<DeckState>(initialDeckState);
-  const [versions, setVersions] = useState<DeckVersion[]>(() => loadDeckVersions());
-  const [intentDraft, setIntentDraft] = useState(
-    initialDeckState.nodes.find((node) => node.id === initialDeckState.activeNodeId)?.intent ?? initialDeckState.nodes[0].intent
-  );
+  const {
+    deckState,
+    setDeckState,
+    activeNode,
+    activeSlide,
+    totalMinutes,
+    intentDraft,
+    setIntentDraft,
+    brief,
+    setBrief,
+    replaceDeck,
+    resetDeck,
+    handleSelectNode,
+    handleApplyIntent,
+    handleDragEnd,
+    applyRiskSuggestion
+  } = useDeckWorkspace();
   const [exportState, setExportState] = useState<"idle" | "working" | "done">("idle");
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => loadAiSettings());
   const [settingsDraft, setSettingsDraft] = useState<AiSettings>(() => loadAiSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [versionDraft, setVersionDraft] = useState({
-    label: "",
-    summary: ""
-  });
-  const [brief, setBrief] = useState<DeckBrief>({
-    topic: "校园二手交易平台",
-    audience: initialDeckState.deck.audience,
-    goal: initialDeckState.deck.goal,
-    duration: initialDeckState.deck.duration
-  });
   const [generationState, setGenerationState] = useState<{
     status: "idle" | "working" | "done" | "error";
     message: string;
   }>({ status: "idle", message: "" });
-  const [projectState, setProjectState] = useState<{
-    status: "idle" | "done" | "error";
-    message: string;
-  }>({ status: "idle", message: "当前项目会自动保存。" });
-  const [slideRewriteState, setSlideRewriteState] = useState<{
-    status: "idle" | "working" | "done" | "error";
-    message: string;
-  }>({ status: "idle", message: "" });
-  const [previewState, setPreviewState] = useState<{
-    status: "idle" | "rendering" | "ready" | "error";
-    imageUrl: string | null;
-    message: string;
-  }>({ status: "idle", imageUrl: null, message: "正在等待 LibreOffice 预览服务。" });
-  const [rewriteCandidate, setRewriteCandidate] = useState<RewriteCandidate | null>(null);
-
-  useEffect(() => {
-    saveDeckState(deckState);
-  }, [deckState]);
-
-  useEffect(() => {
-    if (import.meta.env.MODE === "test") {
-      return;
-    }
-
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      setPreviewState((current) => ({
-        status: "rendering",
-        imageUrl: null,
-        message: "正在使用 LibreOffice 渲染真实 PPT 预览..."
-      }));
-
-      renderSlidePreviewImage(deckState, deckState.activeNodeId, controller.signal)
-        .then((imageUrl) => {
-          setPreviewState((current) => {
-            if (current.imageUrl) {
-              URL.revokeObjectURL(current.imageUrl);
-            }
-            return {
-              status: "ready",
-              imageUrl,
-              message: "预览来自 LibreOffice 渲染结果。"
-            };
-          });
-        })
-        .catch((error) => {
-          if (controller.signal.aborted) {
-            return;
-          }
-          setPreviewState((current) => ({
-            status: "error",
-            imageUrl: current.imageUrl,
-            message:
-              error instanceof TypeError
-                ? "LibreOffice 预览服务未连接，已回退到编辑预览。请运行 npm run preview-server。"
-                : error instanceof Error
-                  ? error.message
-                  : "LibreOffice 预览服务不可用，已回退到编辑预览。"
-          }));
-        });
-    }, 800);
-
-    return () => {
-      controller.abort();
-      window.clearTimeout(timeout);
-    };
-  }, [deckState]);
-
-  useEffect(() => {
-    return () => {
-      if (previewState.imageUrl) {
-        URL.revokeObjectURL(previewState.imageUrl);
-      }
-    };
-  }, [previewState.imageUrl]);
-
-  const activeNode = useMemo(
-    () => deckState.nodes.find((node) => node.id === deckState.activeNodeId) ?? deckState.nodes[0],
-    [deckState.activeNodeId, deckState.nodes]
-  );
-  const activeSlide = getActiveSlide(deckState);
-  const totalMinutes = deckState.nodes.reduce((sum, node) => {
-    const [minutes, seconds] = node.duration.split(":").map(Number);
-    return sum + minutes + seconds / 60;
-  }, 0);
-
-  function handleSelectNode(nodeId: string) {
-    const next = selectNode(deckState, nodeId);
-    const selected = next.nodes.find((node) => node.id === nodeId);
-    setDeckState(next);
-    setIntentDraft(selected?.intent ?? "");
-    setRewriteCandidate(null);
-    setSlideRewriteState({ status: "idle", message: "" });
-  }
-
-  function handleApplyIntent() {
-    setDeckState((current) => applyIntentRewrite(current, activeNode.id, intentDraft));
-  }
-
-  async function handleAiRewriteSlide() {
-    setSlideRewriteState({ status: "working", message: "正在重写当前页..." });
-    setRewriteCandidate(null);
-
-    try {
-      const rewrittenSlide = await rewriteSlideFromIntent(deckState, activeNode.id, intentDraft, aiSettings);
-      setRewriteCandidate({
-        nodeId: activeNode.id,
-        intent: intentDraft,
-        originalSlide: activeSlide,
-        rewrittenSlide
-      });
-      setSlideRewriteState({ status: "done", message: "已生成 AI 建议稿，请对比后应用。" });
-    } catch (error) {
-      setSlideRewriteState({
-        status: "error",
-        message: error instanceof Error ? error.message : "AI 重写失败，请检查设置后重试。"
-      });
-    }
-  }
-
-  function handleApplyRewriteCandidate() {
-    if (!rewriteCandidate) {
-      return;
-    }
-
-    setDeckState((current) =>
-      applySlideRewrite(current, rewriteCandidate.nodeId, rewriteCandidate.intent, rewriteCandidate.rewrittenSlide)
-    );
-    setIntentDraft(rewriteCandidate.intent);
-    setRewriteCandidate(null);
-    setSlideRewriteState({ status: "done", message: "已应用 AI 建议稿。" });
-    window.setTimeout(() => setSlideRewriteState({ status: "idle", message: "" }), 2200);
-  }
-
-  function handleDismissRewriteCandidate() {
-    setRewriteCandidate(null);
-    setSlideRewriteState({ status: "idle", message: "" });
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) {
-      return;
-    }
-    setDeckState((current) => {
-      const next = moveNode(current, String(active.id), String(over.id));
-      const movedNode = next.nodes.find((node) => node.id === String(active.id));
-      setIntentDraft(movedNode?.intent ?? "");
-      return next;
-    });
-  }
-
-  function applyRiskSuggestion() {
-    const suggestedIntent = "先让听众意识到校园交易具备可商业化空间，而不展开复杂收入模型。";
-    setIntentDraft(suggestedIntent);
-    setDeckState((current) => ({
-      ...current,
-      riskPrompt: null,
-      nodes: current.nodes.map((node) =>
-        node.id === "node-5"
-          ? {
-              ...node,
-              title: "商业机会预告",
-              intent: suggestedIntent
-            }
-          : node
-      ),
-      slides: current.slides.map((slide) =>
-        slide.nodeId === "node-5"
-          ? {
-              ...slide,
-              title: "校园交易里已经存在可被服务的商业空间",
-              body: "在讲清产品机制之前，先用交易频次和服务缺口提示商业机会，把详细收入模型留到后半段。",
-              bullets: ["周期性高频交易", "校内信任服务缺口", "后续可展开收入模型"],
-              note: "结构移动后，页面表达从收入模型改成机会预告。"
-            }
-          : slide
-      )
-    }));
-  }
+  const previewState = useLibreOfficePreview(deckState);
+  const {
+    versions,
+    versionDraft,
+    setVersionDraft,
+    projectState,
+    setProjectState,
+    handleSaveVersion,
+    handleRestoreVersion
+  } = useProjectVersions();
+  const {
+    slideRewriteState,
+    rewriteCandidate,
+    handleAiRewriteSlide,
+    handleApplyRewriteCandidate,
+    handleDismissRewriteCandidate,
+    resetRewriteState
+  } = useAiRewrite({
+    deckState,
+    activeNode,
+    activeSlide,
+    intentDraft,
+    aiSettings,
+    setDeckState,
+    setIntentDraft
+  });
 
   function openSettings() {
     setSettingsDraft(aiSettings);
@@ -259,8 +92,8 @@ function App() {
       }
 
       const next = await generateDeckFromBrief(brief, currentSettings);
-      setDeckState(ensureDeckState(next));
-      setIntentDraft(next.nodes[0]?.intent ?? "");
+      replaceDeck(ensureDeckState(next));
+      resetRewriteState();
       setGenerationState({ status: "done", message: "已生成新的叙事地图，可继续编辑节点意图。" });
       window.setTimeout(() => setGenerationState({ status: "idle", message: "" }), 2200);
     } catch (error) {
@@ -272,15 +105,8 @@ function App() {
   }
 
   function handleResetDeck() {
-    clearSavedDeck();
-    setDeckState(ensureDeckState(initialDeck));
-    setIntentDraft(initialDeck.nodes[0].intent);
-    setBrief({
-      topic: "校园二手交易平台",
-      audience: initialDeck.deck.audience,
-      goal: initialDeck.deck.goal,
-      duration: initialDeck.deck.duration
-    });
+    resetDeck();
+    resetRewriteState();
     setProjectState({ status: "done", message: "已重置为示例 Deck。" });
   }
 
@@ -303,15 +129,8 @@ function App() {
 
     try {
       const importedDeck = parseDeckJson(await file.text());
-      const nextDeck = ensureDeckState(importedDeck);
-      setDeckState(nextDeck);
-      setIntentDraft(nextDeck.nodes.find((node) => node.id === nextDeck.activeNodeId)?.intent ?? nextDeck.nodes[0].intent);
-      setBrief((current) => ({
-        ...current,
-        audience: nextDeck.deck.audience,
-        goal: nextDeck.deck.goal,
-        duration: nextDeck.deck.duration
-      }));
+      replaceDeck(ensureDeckState(importedDeck));
+      resetRewriteState();
       setProjectState({ status: "done", message: `已导入 ${file.name}。` });
     } catch (error) {
       setProjectState({
@@ -321,41 +140,6 @@ function App() {
     } finally {
       event.target.value = "";
     }
-  }
-
-  function handleSaveVersion() {
-    const nextVersions = appendDeckVersion(deckState, versionDraft.label || "手动保存", undefined, new Date(), versionDraft.summary);
-    setVersions(nextVersions);
-    setVersionDraft({ label: "", summary: "" });
-    setProjectState({ status: "done", message: "已保存当前版本。" });
-  }
-
-  function handleRestoreVersion(versionId: string) {
-    const restoredDeck = restoreDeckVersion(versions, versionId);
-    const version = versions.find((item) => item.id === versionId);
-    if (!restoredDeck || !version) {
-      setProjectState({ status: "error", message: "未找到这个版本。" });
-      return;
-    }
-
-    const nextVersions = appendDeckVersion(
-      deckState,
-      "恢复前自动保存",
-      undefined,
-      new Date(),
-      `恢复「${version.label}」前的当前状态。`
-    );
-    const nextDeck = ensureDeckState(restoredDeck);
-    setDeckState(nextDeck);
-    setVersions(nextVersions);
-    setIntentDraft(nextDeck.nodes.find((node) => node.id === nextDeck.activeNodeId)?.intent ?? nextDeck.nodes[0].intent);
-    setBrief((current) => ({
-      ...current,
-      audience: nextDeck.deck.audience,
-      goal: nextDeck.deck.goal,
-      duration: nextDeck.deck.duration
-    }));
-    setProjectState({ status: "done", message: `已恢复版本：${version.label}。` });
   }
 
   async function exportPptx() {
@@ -395,7 +179,10 @@ function App() {
         <NarrativeMap
           nodes={deckState.nodes}
           activeNodeId={activeNode.id}
-          onSelectNode={handleSelectNode}
+          onSelectNode={(nodeId) => {
+            handleSelectNode(nodeId);
+            resetRewriteState();
+          }}
           onDragEnd={handleDragEnd}
         />
         <SlidePreview
@@ -437,8 +224,17 @@ function App() {
           projectState={projectState}
           onClose={() => setSettingsOpen(false)}
           onGenerateDeck={handleGenerateDeck}
-          onSaveVersion={handleSaveVersion}
-          onRestoreVersion={handleRestoreVersion}
+          onSaveVersion={() => handleSaveVersion(deckState)}
+          onRestoreVersion={(versionId) =>
+            handleRestoreVersion({
+              currentDeck: deckState,
+              versionId,
+              onRestore: (restoredDeck) => {
+                replaceDeck(restoredDeck);
+                resetRewriteState();
+              }
+            })
+          }
           onResetDeck={handleResetDeck}
           onExportProject={handleExportProject}
           onImportProject={handleImportProject}
