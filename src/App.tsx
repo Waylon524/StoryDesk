@@ -1,29 +1,10 @@
-import { DndContext, type DragEndEvent, closestCenter } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
-  AlertTriangle,
-  ArrowDownUp,
-  Bot,
-  Check,
-  Clock3,
-  Download,
-  FileDown,
-  FileText,
-  GripVertical,
-  KeyRound,
-  Lock,
-  Loader2,
-  MessageSquareText,
-  PanelLeft,
-  RotateCcw,
-  Save,
-  Settings,
-  Sparkles,
-  Upload,
-  X
-} from "lucide-react";
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import type { DragEndEvent } from "@dnd-kit/core";
+import { Download, Settings } from "lucide-react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { IntentPanel } from "./components/IntentPanel";
+import { NarrativeMap } from "./components/NarrativeMap";
+import { SettingsModal } from "./components/SettingsModal";
+import { SlidePreview } from "./components/SlidePreview";
 import { initialDeck } from "./data/seedDeck";
 import { generateDeckFromBrief, rewriteSlideFromIntent } from "./lib/aiGeneration";
 import { loadAiSettings, saveAiSettings } from "./lib/aiSettings";
@@ -39,8 +20,7 @@ import {
 import { appendDeckVersion, loadDeckVersions, restoreDeckVersion } from "./lib/deckVersions";
 import { renderSlidePreviewImage } from "./lib/libreOfficePreview";
 import { exportDeckPptx } from "./lib/pptxExport";
-import { getPreviewSlideLayout, resolveSlideLayoutKind } from "./lib/slideLayout";
-import type { AiSettings, DeckBrief, DeckState, DeckVersion, Slide, StoryNode } from "./types";
+import type { AiSettings, DeckBrief, DeckState, DeckVersion, Slide } from "./types";
 
 interface RewriteCandidate {
   nodeId: string;
@@ -60,7 +40,6 @@ function App() {
   const [aiSettings, setAiSettings] = useState<AiSettings>(() => loadAiSettings());
   const [settingsDraft, setSettingsDraft] = useState<AiSettings>(() => loadAiSettings());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [versionDraft, setVersionDraft] = useState({
     label: "",
     summary: ""
@@ -156,21 +135,6 @@ function App() {
     [deckState.activeNodeId, deckState.nodes]
   );
   const activeSlide = getActiveSlide(deckState);
-  const activeLayoutKind = resolveSlideLayoutKind(activeSlide.layout, activeNode.role);
-  const activeLayout = getPreviewSlideLayout(activeLayoutKind);
-  const slideTemplateStyle = useMemo(
-    () =>
-      ({
-        "--slide-bg": `#${deckState.template.backgroundColor}`,
-        "--slide-surface": `#${deckState.template.surfaceColor}`,
-        "--slide-accent": `#${deckState.template.accentColor}`,
-        "--slide-accent-soft": `#${deckState.template.accentSoftColor}`,
-        "--slide-text": `#${deckState.template.textColor}`,
-        "--slide-body": `#${deckState.template.bodyColor}`,
-        "--slide-border": `#${deckState.template.borderColor}`
-      }) as CSSProperties,
-    [deckState.template]
-  );
   const totalMinutes = deckState.nodes.reduce((sum, node) => {
     const [minutes, seconds] = node.duration.split(":").map(Number);
     return sum + minutes + seconds / 60;
@@ -331,7 +295,7 @@ function App() {
     setProjectState({ status: "done", message: "已导出 .storydeck.json 项目文件。" });
   }
 
-  async function handleImportProject(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImportProject(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -428,421 +392,61 @@ function App() {
       </header>
 
       <main className="workspace">
-        <aside className="narrative-panel">
-          <PanelHeader
-            icon={<PanelLeft size={17} />}
-            title="Narrative Map"
-            subtitle="线性叙事节点"
-          />
-          <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={deckState.nodes.map((node) => node.id)} strategy={verticalListSortingStrategy}>
-              <div className="node-list">
-                {deckState.nodes.map((node, index) => (
-                  <SortableNode
-                    key={node.id}
-                    index={index}
-                    node={node}
-                    active={node.id === activeNode.id}
-                    onSelect={() => handleSelectNode(node.id)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        </aside>
-
-        <section className="canvas-panel">
-          <div className="canvas-toolbar">
-            <div>
-              <span className="toolbar-label">Slide Preview</span>
-              <strong>{activeNode.title}</strong>
-              <small>{activeLayout.label}</small>
-            </div>
-            <div className="toolbar-actions">
-              <button><FileText size={15} /> 页面</button>
-              <button><ArrowDownUp size={15} /> 过渡</button>
-              <button onClick={handleAiRewriteSlide} disabled={slideRewriteState.status === "working"}>
-                {slideRewriteState.status === "working" ? <Loader2 className="spin" size={15} /> : <Sparkles size={15} />}
-                AI 重写
-              </button>
-            </div>
-          </div>
-          <article className="slide-stage" aria-label="当前幻灯片预览">
-            {previewState.imageUrl ? (
-              <img className="rendered-slide-preview" src={previewState.imageUrl} alt="LibreOffice 渲染的当前幻灯片预览" />
-            ) : (
-              <div className={`slide-card ${activeLayout.className}`} style={slideTemplateStyle}>
-                <div className="slide-kicker">{activeNode.role} · {activeNode.duration}</div>
-                <h1>{activeSlide.title}</h1>
-                <p>{activeSlide.body}</p>
-                <div className="slide-grid">
-                  {activeSlide.bullets.slice(0, activeLayout.bulletCards.length).map((bullet, index) => (
-                    <div className="slide-point" key={bullet}>
-                      <span>{String(index + 1).padStart(2, "0")}</span>
-                      <strong>{bullet}</strong>
-                    </div>
-                  ))}
-                </div>
-                <div className="speaker-note">
-                  <MessageSquareText size={16} />
-                  <span>{activeSlide.note}</span>
-                </div>
-              </div>
-            )}
-            <div className={`preview-render-status ${previewState.status}`}>
-              {previewState.status === "rendering" ? <Loader2 className="spin" size={14} /> : <FileText size={14} />}
-              <span>{previewState.message}</span>
-            </div>
-          </article>
-        </section>
-
-        <aside className="intent-panel">
-          <PanelHeader
-            icon={<Lock size={17} />}
-            title="Intent Panel"
-            subtitle="意图锁与 AI 建议"
-          />
-          <section className="intent-block">
-            <span className="section-label">全局意图</span>
-            <p>{deckState.deck.goal}</p>
-            <div className="intent-tags">
-              <span>{deckState.deck.tone}</span>
-              <span>{deckState.deck.duration}</span>
-            </div>
-          </section>
-
-          <section className="intent-block current">
-            <span className="section-label">当前节点</span>
-            <h2>{activeNode.title}</h2>
-            <label htmlFor="intent-editor">表达目标</label>
-            <textarea
-              id="intent-editor"
-              value={intentDraft}
-              onChange={(event) => setIntentDraft(event.target.value)}
-            />
-            <button className="apply-button" onClick={handleApplyIntent}>
-              <Check size={16} />
-              应用修改
-            </button>
-            {slideRewriteState.message ? (
-              <p className={`status-message ${slideRewriteState.status}`}>{slideRewriteState.message}</p>
-            ) : null}
-          </section>
-
-          {rewriteCandidate ? (
-            <section className="rewrite-review-panel" aria-label="AI 重写对比">
-              <div className="review-header">
-                <span className="section-label">AI 重写对比</span>
-                <strong>应用前确认</strong>
-              </div>
-              <div className="review-columns">
-                <SlideSummary title="原稿" slide={rewriteCandidate.originalSlide} />
-                <SlideSummary title="AI 建议稿" slide={rewriteCandidate.rewrittenSlide} />
-              </div>
-              <div className="review-actions">
-                <button className="secondary-action" onClick={handleAiRewriteSlide} disabled={slideRewriteState.status === "working"}>
-                  {slideRewriteState.status === "working" ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
-                  重新生成
-                </button>
-                <button className="secondary-action" onClick={handleDismissRewriteCandidate}>
-                  放弃
-                </button>
-                <button className="apply-button" onClick={handleApplyRewriteCandidate}>
-                  <Check size={16} />
-                  应用 AI 建议
-                </button>
-              </div>
-            </section>
-          ) : null}
-
-          {deckState.riskPrompt ? (
-            <section className="risk-panel">
-              <div>
-                <AlertTriangle size={17} />
-                <strong>结构风险</strong>
-              </div>
-              <p>{deckState.riskPrompt}</p>
-              <button onClick={applyRiskSuggestion}>改写为商业机会预告</button>
-            </section>
-          ) : (
-            <section className="ai-panel">
-              <div>
-                <Bot size={17} />
-                <strong>AI 建议</strong>
-              </div>
-              <ul>
-                <li>补一个真实用户故事，让问题从抽象词变成具体阻碍。</li>
-                <li>把功能点压缩成解决路径，减少产品说明书感。</li>
-                <li>每个论证节点保留一个可验证证据。</li>
-              </ul>
-            </section>
-          )}
-        </aside>
+        <NarrativeMap
+          nodes={deckState.nodes}
+          activeNodeId={activeNode.id}
+          onSelectNode={handleSelectNode}
+          onDragEnd={handleDragEnd}
+        />
+        <SlidePreview
+          activeNode={activeNode}
+          activeSlide={activeSlide}
+          template={deckState.template}
+          rewriteStatus={slideRewriteState.status}
+          previewState={previewState}
+          onAiRewriteSlide={handleAiRewriteSlide}
+        />
+        <IntentPanel
+          deckGoal={deckState.deck.goal}
+          deckTone={deckState.deck.tone}
+          deckDuration={deckState.deck.duration}
+          activeNode={activeNode}
+          intentDraft={intentDraft}
+          setIntentDraft={setIntentDraft}
+          slideRewriteState={slideRewriteState}
+          rewriteCandidate={rewriteCandidate}
+          riskPrompt={deckState.riskPrompt}
+          onApplyIntent={handleApplyIntent}
+          onAiRewriteSlide={handleAiRewriteSlide}
+          onDismissRewriteCandidate={handleDismissRewriteCandidate}
+          onApplyRewriteCandidate={handleApplyRewriteCandidate}
+          onApplyRiskSuggestion={applyRiskSuggestion}
+        />
       </main>
 
       {settingsOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <section className="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-            <div className="modal-header">
-              <div>
-                <span className="section-label">全局设置</span>
-                <h2 id="settings-title">全局设置</h2>
-              </div>
-              <button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label="关闭设置">
-                <X size={17} />
-              </button>
-            </div>
-
-            <section className="settings-section">
-              <div className="generate-title">
-                <Sparkles size={17} />
-                <strong>新建叙事地图</strong>
-              </div>
-              <label htmlFor="brief-topic">主题</label>
-              <input
-                id="brief-topic"
-                value={brief.topic}
-                onChange={(event) => setBrief((current) => ({ ...current, topic: event.target.value }))}
-              />
-              <label htmlFor="brief-audience">受众</label>
-              <input
-                id="brief-audience"
-                value={brief.audience}
-                onChange={(event) => setBrief((current) => ({ ...current, audience: event.target.value }))}
-              />
-              <label htmlFor="brief-goal">目标</label>
-              <textarea
-                id="brief-goal"
-                value={brief.goal}
-                onChange={(event) => setBrief((current) => ({ ...current, goal: event.target.value }))}
-              />
-              <label htmlFor="brief-duration">时长</label>
-              <input
-                id="brief-duration"
-                value={brief.duration}
-                onChange={(event) => setBrief((current) => ({ ...current, duration: event.target.value }))}
-              />
-              <button className="apply-button" onClick={handleGenerateDeck} disabled={generationState.status === "working"}>
-                {generationState.status === "working" ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
-                生成叙事地图
-              </button>
-              {generationState.message ? (
-                <p className={`status-message ${generationState.status}`}>{generationState.message}</p>
-              ) : null}
-            </section>
-
-            <section className="settings-section">
-              <div className="generate-title">
-                <KeyRound size={17} />
-                <strong>OpenAI-compatible API</strong>
-              </div>
-              <label htmlFor="api-key">API Key</label>
-              <div className="key-input">
-                <KeyRound size={16} />
-                <input
-                  id="api-key"
-                  type="password"
-                  autoComplete="off"
-                  value={settingsDraft.apiKey}
-                  placeholder="sk-..."
-                  onChange={(event) => setSettingsDraft((current) => ({ ...current, apiKey: event.target.value }))}
-                />
-              </div>
-              <label htmlFor="base-url">Base URL</label>
-              <input
-                id="base-url"
-                value={settingsDraft.baseUrl}
-                onChange={(event) => setSettingsDraft((current) => ({ ...current, baseUrl: event.target.value }))}
-              />
-              <label htmlFor="model-name">模型</label>
-              <input
-                id="model-name"
-                value={settingsDraft.model}
-                onChange={(event) => setSettingsDraft((current) => ({ ...current, model: event.target.value }))}
-              />
-            </section>
-
-            <section className="settings-section">
-              <div className="generate-title">
-                <Clock3 size={17} />
-                <strong>版本管理</strong>
-              </div>
-              <label htmlFor="version-label">版本名称</label>
-              <input
-                id="version-label"
-                value={versionDraft.label}
-                placeholder="例如：AI 模板生成前"
-                onChange={(event) => setVersionDraft((current) => ({ ...current, label: event.target.value }))}
-              />
-              <label htmlFor="version-summary">变更摘要</label>
-              <textarea
-                id="version-summary"
-                value={versionDraft.summary}
-                placeholder="记录这次版本的关键变化，留空则自动生成摘要。"
-                onChange={(event) => setVersionDraft((current) => ({ ...current, summary: event.target.value }))}
-              />
-              <div className="project-actions">
-                <button className="secondary-action" onClick={handleSaveVersion}>
-                  <Save size={16} />
-                  保存当前版本
-                </button>
-              </div>
-              <div className="version-list">
-                {versions.length > 0 ? (
-                  versions.map((version) => (
-                    <div className="version-row" key={version.id}>
-                      <div>
-                        <strong>{version.label}</strong>
-                        <span>{formatVersionTime(version.createdAt)}</span>
-                        <p>{version.summary}</p>
-                      </div>
-                      <button className="secondary-action" onClick={() => handleRestoreVersion(version.id)}>
-                        恢复
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="empty-version">暂无保存版本</p>
-                )}
-              </div>
-            </section>
-
-            <section className="settings-section">
-              <div className="generate-title">
-                <FileText size={17} />
-                <strong>项目文件</strong>
-              </div>
-              <div className="project-actions">
-                <button className="secondary-action" onClick={handleResetDeck}>
-                  <RotateCcw size={16} />
-                  重置为示例 Deck
-                </button>
-                <button className="secondary-action" onClick={handleExportProject}>
-                  <FileDown size={16} />
-                  导出项目
-                </button>
-                <label className="file-action secondary-action" htmlFor="storydeck-import">
-                  <Upload size={16} />
-                  导入项目
-                </label>
-                <input
-                  ref={fileInputRef}
-                  id="storydeck-import"
-                  className="visually-hidden"
-                  type="file"
-                  accept=".json,.storydeck.json,application/json"
-                  aria-label="导入项目"
-                  onChange={handleImportProject}
-                />
-              </div>
-              <p className={`status-message ${projectState.status}`}>{projectState.message}</p>
-            </section>
-
-            <div className="modal-actions">
-              <button className="secondary-action" onClick={() => setSettingsOpen(false)}>
-                取消
-              </button>
-              <button className="primary-action" onClick={handleSaveSettings}>
-                <Save size={16} />
-                保存设置
-              </button>
-            </div>
-          </section>
-        </div>
+        <SettingsModal
+          brief={brief}
+          setBrief={setBrief}
+          settingsDraft={settingsDraft}
+          setSettingsDraft={setSettingsDraft}
+          generationState={generationState}
+          versions={versions}
+          versionDraft={versionDraft}
+          setVersionDraft={setVersionDraft}
+          projectState={projectState}
+          onClose={() => setSettingsOpen(false)}
+          onGenerateDeck={handleGenerateDeck}
+          onSaveVersion={handleSaveVersion}
+          onRestoreVersion={handleRestoreVersion}
+          onResetDeck={handleResetDeck}
+          onExportProject={handleExportProject}
+          onImportProject={handleImportProject}
+          onSaveSettings={handleSaveSettings}
+        />
       ) : null}
     </div>
   );
-}
-
-interface PanelHeaderProps {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-}
-
-function PanelHeader({ icon, title, subtitle }: PanelHeaderProps) {
-  return (
-    <div className="panel-header">
-      <div className="panel-title">
-        {icon}
-        <strong>{title}</strong>
-      </div>
-      <span>{subtitle}</span>
-    </div>
-  );
-}
-
-interface SlideSummaryProps {
-  title: string;
-  slide: Pick<Slide, "title" | "body" | "bullets" | "note">;
-}
-
-function SlideSummary({ title, slide }: SlideSummaryProps) {
-  return (
-    <div className="slide-summary">
-      <span>{title}</span>
-      <strong>{slide.title}</strong>
-      <p>{slide.body}</p>
-      <ul>
-        {slide.bullets.map((bullet) => (
-          <li key={bullet}>{bullet}</li>
-        ))}
-      </ul>
-      <small>{slide.note}</small>
-    </div>
-  );
-}
-
-interface SortableNodeProps {
-  node: StoryNode;
-  index: number;
-  active: boolean;
-  onSelect: () => void;
-}
-
-function SortableNode({ node, index, active, onSelect }: SortableNodeProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: node.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition
-  };
-
-  return (
-    <button
-      ref={setNodeRef}
-      style={style}
-      className={`story-node ${active ? "active" : ""} ${isDragging ? "dragging" : ""}`}
-      onClick={onSelect}
-      type="button"
-    >
-      <span className="drag-handle" {...attributes} {...listeners} aria-label="拖动节点">
-        <GripVertical size={15} />
-      </span>
-      <span className="node-index">{String(index + 1).padStart(2, "0")}</span>
-      <span className="node-main">
-        <strong>{node.title}</strong>
-        <small>{node.intent}</small>
-      </span>
-      <span className="node-side">
-        <em>{node.role}</em>
-        <small>{node.duration}</small>
-      </span>
-    </button>
-  );
-}
-
-function formatVersionTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "未知时间";
-  }
-
-  return new Intl.DateTimeFormat("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  }).format(date);
 }
 
 export default App;
