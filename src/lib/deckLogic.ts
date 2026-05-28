@@ -1,4 +1,4 @@
-import type { DeckState } from "../types";
+import type { DeckState, SlideLayoutKind } from "../types";
 import type { Slide } from "../types";
 
 export function selectNode(state: DeckState, nodeId: string): DeckState {
@@ -68,6 +68,21 @@ export function applySlideRewrite(
         ? {
             ...slide,
             ...rewrittenSlide
+          }
+        : slide
+    )
+  };
+}
+
+export function applySlideLayout(state: DeckState, nodeId: string, layout: SlideLayoutKind): DeckState {
+  return {
+    ...state,
+    activeNodeId: nodeId,
+    slides: state.slides.map((slide) =>
+      slide.nodeId === nodeId
+        ? {
+            ...slide,
+            layout
           }
         : slide
     )

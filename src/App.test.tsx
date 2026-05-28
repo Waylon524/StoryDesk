@@ -44,7 +44,7 @@ describe("StoryDeck application shell", () => {
 
     expect(screen.getByRole("heading", { name: "核心矛盾" })).toBeInTheDocument();
     expect(screen.getByText("恢复上次编辑状态。")).toBeInTheDocument();
-    expect(screen.getByText("三点论证")).toBeInTheDocument();
+    expect(screen.getAllByText("三点论证").length).toBeGreaterThan(0);
   });
 
   it("exposes reset, export, and import controls in global settings", () => {
@@ -67,6 +67,19 @@ describe("StoryDeck application shell", () => {
     expect(within(statusPanel).getByText("启动真实预览服务")).toBeInTheDocument();
     expect(within(statusPanel).getByText("npm run preview-server")).toBeInTheDocument();
     expect(within(statusPanel).getByText("127.0.0.1:5175")).toBeInTheDocument();
+  });
+
+  it("lets the user change the current slide layout from the preview toolbar", () => {
+    render(<App />);
+
+    const layoutSelect = screen.getByLabelText("页面布局");
+    expect(layoutSelect).toHaveValue("statement");
+    expect(screen.getAllByText("场景陈述").length).toBeGreaterThan(0);
+
+    fireEvent.change(layoutSelect, { target: { value: "process" } });
+
+    expect(layoutSelect).toHaveValue("process");
+    expect(screen.getAllByText("流程路径").length).toBeGreaterThan(0);
   });
 
   it("shows locked template controls and regenerates the template with an automatic version", async () => {

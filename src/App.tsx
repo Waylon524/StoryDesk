@@ -30,6 +30,7 @@ function App() {
     resetDeck,
     handleSelectNode,
     handleApplyIntent,
+    handleChangeSlideLayout,
     handleDragEnd,
     applyRiskSuggestion
   } = useDeckWorkspace();
@@ -233,6 +234,7 @@ function App() {
           rewriteStatus={slideRewriteState.status}
           previewState={previewState}
           onAiRewriteSlide={handleAiRewriteSlide}
+          onLayoutChange={handleChangeSlideLayout}
         />
         <IntentPanel
           deckGoal={deckState.deck.goal}

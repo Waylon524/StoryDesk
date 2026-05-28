@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { initialDeck } from "../data/seedDeck";
-import { applyIntentRewrite, applySlideRewrite, getActiveSlide, moveNode, selectNode } from "./deckLogic";
+import { applyIntentRewrite, applySlideLayout, applySlideRewrite, getActiveSlide, moveNode, selectNode } from "./deckLogic";
 
 describe("deck narrative state", () => {
   it("selects a narrative node and resolves the bound slide", () => {
@@ -59,5 +59,14 @@ describe("deck narrative state", () => {
 
     expect(state.template).toEqual(initialDeck.template);
     expect(state.slides.find((slide) => slide.nodeId === "node-3")?.layout).toBe("three-point");
+  });
+
+  it("changes only the selected slide layout", () => {
+    const state = applySlideLayout(initialDeck, "node-1", "process");
+
+    expect(state.activeNodeId).toBe("node-1");
+    expect(state.slides.find((slide) => slide.nodeId === "node-1")?.layout).toBe("process");
+    expect(state.slides.find((slide) => slide.nodeId === "node-2")?.layout).toBe("statement");
+    expect(state.template).toEqual(initialDeck.template);
   });
 });

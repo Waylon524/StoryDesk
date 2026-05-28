@@ -1,10 +1,10 @@
 import type { DragEndEvent } from "@dnd-kit/core";
 import { useEffect, useMemo, useState } from "react";
 import { initialDeck } from "../data/seedDeck";
-import { applyIntentRewrite, getActiveSlide, moveNode, selectNode } from "../lib/deckLogic";
+import { applyIntentRewrite, applySlideLayout, getActiveSlide, moveNode, selectNode } from "../lib/deckLogic";
 import { ensureDeckState } from "../lib/deckTemplate";
 import { clearSavedDeck, loadSavedDeck, saveDeckState } from "../lib/deckPersistence";
-import type { DeckBrief, DeckState } from "../types";
+import type { DeckBrief, DeckState, SlideLayoutKind } from "../types";
 
 export function useDeckWorkspace() {
   const [initialDeckState] = useState<DeckState>(() => ensureDeckState(loadSavedDeck() ?? initialDeck));
@@ -49,6 +49,10 @@ export function useDeckWorkspace() {
 
   function handleApplyIntent() {
     setDeckState((current) => applyIntentRewrite(current, activeNode.id, intentDraft));
+  }
+
+  function handleChangeSlideLayout(layout: SlideLayoutKind) {
+    setDeckState((current) => applySlideLayout(current, activeNode.id, layout));
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -131,6 +135,7 @@ export function useDeckWorkspace() {
     resetDeck,
     handleSelectNode,
     handleApplyIntent,
+    handleChangeSlideLayout,
     handleDragEnd,
     applyRiskSuggestion
   };

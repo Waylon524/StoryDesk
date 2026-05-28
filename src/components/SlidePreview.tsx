@@ -1,7 +1,7 @@
 import { ArrowDownUp, FileText, Loader2, MessageSquareText, Server, Sparkles } from "lucide-react";
 import { type CSSProperties, useMemo, useState } from "react";
-import { getPreviewSlideLayout, resolveSlideLayoutKind } from "../lib/slideLayout";
-import type { DeckTemplate, Slide, StoryNode } from "../types";
+import { getPreviewSlideLayout, layoutKinds, resolveSlideLayoutKind } from "../lib/slideLayout";
+import type { DeckTemplate, Slide, SlideLayoutKind, StoryNode } from "../types";
 
 interface PreviewState {
   status: "idle" | "rendering" | "ready" | "error";
@@ -16,6 +16,7 @@ interface SlidePreviewProps {
   rewriteStatus: "idle" | "working" | "done" | "error";
   previewState: PreviewState;
   onAiRewriteSlide: () => void;
+  onLayoutChange: (layout: SlideLayoutKind) => void;
 }
 
 export function SlidePreview({
@@ -24,7 +25,8 @@ export function SlidePreview({
   template,
   rewriteStatus,
   previewState,
-  onAiRewriteSlide
+  onAiRewriteSlide,
+  onLayoutChange
 }: SlidePreviewProps) {
   const [serviceGuideOpen, setServiceGuideOpen] = useState(false);
   const activeLayoutKind = resolveSlideLayoutKind(activeSlide.layout, activeNode.role);
@@ -52,9 +54,21 @@ export function SlidePreview({
           <small>{activeLayout.label}</small>
         </div>
         <div className="toolbar-actions">
-          <button>
-            <FileText size={15} /> 页面
-          </button>
+          <label className="layout-select-control">
+            <FileText size={15} />
+            <span>页面布局</span>
+            <select
+              aria-label="页面布局"
+              value={activeLayoutKind}
+              onChange={(event) => onLayoutChange(event.target.value as SlideLayoutKind)}
+            >
+              {layoutKinds.map((kind) => (
+                <option key={kind} value={kind}>
+                  {getPreviewSlideLayout(kind).label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button>
             <ArrowDownUp size={15} /> 过渡
           </button>

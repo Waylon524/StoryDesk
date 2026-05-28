@@ -296,10 +296,12 @@ button:disabled {
 
 .toolbar-actions {
   display: flex;
+  align-items: center;
   gap: 7px;
 }
 
-.toolbar-actions button {
+.toolbar-actions button,
+.layout-select-control {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -311,6 +313,25 @@ button:disabled {
   padding: 0 10px;
   font-size: 12px;
   font-weight: 650;
+}
+
+.layout-select-control {
+  padding-right: 8px;
+}
+
+.layout-select-control span {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.layout-select-control select {
+  min-width: 92px;
+  border: 0;
+  background: transparent;
+  color: #344054;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
 }
 
 .slide-stage {
