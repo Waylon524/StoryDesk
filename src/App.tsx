@@ -1,4 +1,4 @@
-import { Download, Settings } from "lucide-react";
+import { Download, Settings, Undo2 } from "lucide-react";
 import { type ChangeEvent, useState } from "react";
 import { IntentPanel } from "./components/IntentPanel";
 import { NarrativeMap } from "./components/NarrativeMap";
@@ -18,16 +18,18 @@ import type { AiSettings } from "./types";
 function App() {
   const {
     deckState,
-    setDeckState,
+    updateDeckStateWithUndo,
     activeNode,
     activeSlide,
     totalMinutes,
+    canUndo,
     intentDraft,
     setIntentDraft,
     brief,
     setBrief,
     replaceDeck,
     resetDeck,
+    handleUndo,
     handleSelectNode,
     handleApplyIntent,
     handleChangeSlideLayout,
@@ -70,7 +72,7 @@ function App() {
     activeSlide,
     intentDraft,
     aiSettings,
-    setDeckState,
+    updateDeckState: updateDeckStateWithUndo,
     setIntentDraft
   });
 
@@ -101,7 +103,7 @@ function App() {
       }
 
       const next = await generateDeckFromBrief(brief, currentSettings);
-      replaceDeck(ensureDeckState(next));
+      replaceDeck(ensureDeckState(next), { trackUndo: true });
       resetRewriteState();
       setGenerationState({ status: "done", message: "已生成新的叙事地图，可继续编辑节点意图。" });
       window.setTimeout(() => setGenerationState({ status: "idle", message: "" }), 2200);
@@ -132,7 +134,7 @@ function App() {
         `重新生成「${deckState.template.name}」模板前的当前状态。`
       );
       const template = await generateTemplateForDeck(deckState, brief, currentSettings);
-      setDeckState((current) => ({
+      updateDeckStateWithUndo((current) => ({
         ...current,
         template
       }));
@@ -171,7 +173,7 @@ function App() {
 
     try {
       const importedDeck = parseDeckJson(await file.text());
-      replaceDeck(ensureDeckState(importedDeck));
+      replaceDeck(ensureDeckState(importedDeck), { trackUndo: true });
       resetRewriteState();
       setProjectState({ status: "done", message: `已导入 ${file.name}。` });
     } catch (error) {
@@ -210,6 +212,10 @@ function App() {
         <button className="secondary-action" onClick={openSettings}>
           <Settings size={16} />
           设置
+        </button>
+        <button className="secondary-action" onClick={handleUndo} disabled={!canUndo}>
+          <Undo2 size={16} />
+          撤销
         </button>
         <button className="primary-action" onClick={exportPptx} disabled={exportState === "working"}>
           <Download size={16} />
@@ -276,7 +282,7 @@ function App() {
               currentDeck: deckState,
               versionId,
               onRestore: (restoredDeck) => {
-                replaceDeck(restoredDeck);
+                replaceDeck(restoredDeck, { trackUndo: true });
                 resetRewriteState();
               }
             })

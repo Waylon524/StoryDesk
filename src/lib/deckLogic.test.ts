@@ -69,4 +69,10 @@ describe("deck narrative state", () => {
     expect(state.slides.find((slide) => slide.nodeId === "node-2")?.layout).toBe("statement");
     expect(state.template).toEqual(initialDeck.template);
   });
+
+  it("keeps the current state object when the selected slide layout is unchanged", () => {
+    const state = applySlideLayout(initialDeck, "node-1", "statement");
+
+    expect(state).toBe(initialDeck);
+  });
 });

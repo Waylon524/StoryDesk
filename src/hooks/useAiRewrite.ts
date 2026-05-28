@@ -16,7 +16,7 @@ interface UseAiRewriteOptions {
   activeSlide: Slide;
   intentDraft: string;
   aiSettings: AiSettings;
-  setDeckState: Dispatch<SetStateAction<DeckState>>;
+  updateDeckState: (updater: (current: DeckState) => DeckState) => void;
   setIntentDraft: Dispatch<SetStateAction<string>>;
 }
 
@@ -26,7 +26,7 @@ export function useAiRewrite({
   activeSlide,
   intentDraft,
   aiSettings,
-  setDeckState,
+  updateDeckState,
   setIntentDraft
 }: UseAiRewriteOptions) {
   const [slideRewriteState, setSlideRewriteState] = useState<{
@@ -61,7 +61,7 @@ export function useAiRewrite({
       return;
     }
 
-    setDeckState((current) =>
+    updateDeckState((current) =>
       applySlideRewrite(current, rewriteCandidate.nodeId, rewriteCandidate.intent, rewriteCandidate.rewrittenSlide)
     );
     setIntentDraft(rewriteCandidate.intent);

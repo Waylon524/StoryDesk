@@ -82,6 +82,25 @@ describe("StoryDeck application shell", () => {
     expect(screen.getAllByText("流程路径").length).toBeGreaterThan(0);
   });
 
+  it("undoes the latest deck edit from the top bar", () => {
+    render(<App />);
+
+    const undoButton = screen.getByRole("button", { name: "撤销" });
+    const layoutSelect = screen.getByLabelText("页面布局");
+    expect(undoButton).toBeDisabled();
+
+    fireEvent.change(layoutSelect, { target: { value: "process" } });
+
+    expect(layoutSelect).toHaveValue("process");
+    expect(undoButton).toBeEnabled();
+
+    fireEvent.click(undoButton);
+
+    expect(layoutSelect).toHaveValue("statement");
+    expect(screen.getAllByText("场景陈述").length).toBeGreaterThan(0);
+    expect(undoButton).toBeDisabled();
+  });
+
   it("shows locked template controls and regenerates the template with an automatic version", async () => {
     window.localStorage.setItem(
       "storydeck.aiSettings.v1",

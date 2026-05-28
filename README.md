@@ -73,6 +73,7 @@ The app stores the current project and version history in browser local storage.
 - Stable deck template generated at deck creation time.
 - Template management with locked palette preview and AI template regeneration.
 - Local version management with manual save and restore.
+- Undo for recent deck-level edits such as layout changes, rewrites, resets, imports, restores, and template regeneration.
 - Project export/import as `.storydeck.json`.
 - PPTX export through `pptxgenjs`.
 - Tests for persistence, AI generation, single-slide rewrite, template stability, and version history.
@@ -250,6 +251,7 @@ Implemented:
 - Preview-toolbar layout selection for the current slide.
 - Stable deck template.
 - Locked template controls and AI template regeneration.
+- Undo stack for quick local reversions.
 - Local project persistence.
 - Project export/import.
 - Named version history with summaries and pre-restore autosave.
@@ -257,7 +259,6 @@ Implemented:
 
 Planned next:
 
-- Undo stack for quick local reversions.
 - Image and evidence attachment per slide.
 - Preview/export regression checks through LibreOffice-rendered images.
 - Cloud sync or Git-backed project history.

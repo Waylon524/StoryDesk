@@ -75,6 +75,11 @@ export function applySlideRewrite(
 }
 
 export function applySlideLayout(state: DeckState, nodeId: string, layout: SlideLayoutKind): DeckState {
+  const selectedSlide = state.slides.find((slide) => slide.nodeId === nodeId);
+  if (!selectedSlide || selectedSlide.layout === layout) {
+    return state;
+  }
+
   return {
     ...state,
     activeNodeId: nodeId,
