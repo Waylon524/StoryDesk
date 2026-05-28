@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "preview-server": "node server/preview-server.mjs",
     "build": "tsc -b && vite build",
     "test": "vitest run --config vitest.config.ts",
     "lint": "tsc -b --pretty false"

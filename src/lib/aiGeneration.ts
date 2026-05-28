@@ -1,7 +1,7 @@
 import { normalizeBaseUrl } from "./aiSettings";
-import { createDeckTemplate } from "./deckTemplate";
+import { normalizeAiDeckTemplate } from "./deckTemplate";
 import { resolveSlideLayoutKind } from "./slideLayout";
-import type { AiSettings, DeckBrief, DeckState, NodeRole, Slide, SlideLayoutKind } from "../types";
+import type { AiSettings, DeckBrief, DeckState, DeckTemplate, NodeRole, Slide, SlideLayoutKind } from "../types";
 
 type Fetcher = typeof fetch;
 
@@ -23,6 +23,8 @@ interface GeneratedDeckPayload {
   deck: DeckState["deck"];
   nodes: GeneratedNode[];
 }
+
+type GeneratedTemplatePayload = Partial<DeckTemplate>;
 
 type GeneratedSlidePayload = Pick<Slide, "title" | "body" | "bullets" | "note">;
 
@@ -88,7 +90,9 @@ export async function generateDeckFromBrief(
     throw new Error("AI 返回格式不正确，缺少 message.content。");
   }
 
-  return payloadToDeckState(parseJsonContent(content), brief);
+  const narrativePayload = parseJsonContent<GeneratedDeckPayload>(content);
+  const templatePayload = await generateTemplateFromNarrative(narrativePayload, brief, settings, fetcher);
+  return payloadToDeckState(narrativePayload, brief, templatePayload);
 }
 
 export async function rewriteSlideFromIntent(
@@ -143,7 +147,7 @@ export async function rewriteSlideFromIntent(
     throw new Error("AI 返回格式不正确，缺少 message.content。");
   }
 
-  return normalizeSlidePayload(parseJsonContent(content) as unknown);
+  return normalizeSlidePayload(parseJsonContent(content));
 }
 
 function buildDeckPrompt(brief: DeckBrief) {
@@ -162,8 +166,78 @@ function buildDeckPrompt(brief: DeckBrief) {
     "  ]",
     "}",
     "布局建议：开场/共鸣适合 statement，冲突/论证适合 three-point，解决路径适合 process，行动/收束适合 closing。",
+    "不要输出 template 或视觉样式；模板会在另一个新对话中根据叙事地图生成。",
     "要求：标题具体，正文不空泛，bullets 每页 3 到 4 条，整体结构先问题后解决再行动。",
     "除非用户在主题中提供了明确数字，否则不要编造具体统计数据；需要数据时写成“待验证假设”或“建议补充调研数据”。"
+  ].join("\n");
+}
+
+async function generateTemplateFromNarrative(
+  narrativePayload: GeneratedDeckPayload,
+  brief: DeckBrief,
+  settings: AiSettings,
+  fetcher: Fetcher
+): Promise<DeckTemplate> {
+  const response = await fetcher(resolveChatCompletionsEndpoint(settings.baseUrl), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${settings.apiKey.trim()}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: settings.model.trim(),
+      temperature: 0.32,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "你是 StoryDeck 的演示模板设计师。这是一个全新的对话，只根据用户给出的叙事地图生成模板。只输出严格 JSON，不要 Markdown。"
+        },
+        {
+          role: "user",
+          content: buildTemplatePrompt(brief, narrativePayload)
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`AI 模板生成失败：${response.status}${detail ? ` ${detail}` : ""}`);
+  }
+
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== "string") {
+    throw new Error("AI 模板返回格式不正确，缺少 message.content。");
+  }
+
+  return normalizeAiDeckTemplate(parseJsonContent<GeneratedTemplatePayload>(content), brief);
+}
+
+function buildTemplatePrompt(brief: DeckBrief, narrativePayload: GeneratedDeckPayload) {
+  return [
+    `主题：${brief.topic}`,
+    `受众：${brief.audience}`,
+    `目标：${brief.goal}`,
+    "",
+    "叙事地图 JSON：",
+    JSON.stringify(narrativePayload, null, 2),
+    "",
+    "请只输出这个 JSON 结构：",
+    "{",
+    '  "name": "不超过 40 个字符的模板名",',
+    '  "aspectRatio": "16:9",',
+    '  "backgroundColor": "FFFFFF",',
+    '  "surfaceColor": "F8FAFC",',
+    '  "accentColor": "0F766E",',
+    '  "accentSoftColor": "CCFBF1",',
+    '  "textColor": "111827",',
+    '  "bodyColor": "374151",',
+    '  "borderColor": "DCE4EB"',
+    "}",
+    "颜色必须是 6 位十六进制，不要带 #。保持高对比度，适合商务演示，不要使用过暗背景或低可读性组合。"
   ].join("\n");
 }
 
@@ -195,13 +269,13 @@ function buildSlideRewritePrompt(
   ].join("\n");
 }
 
-function parseJsonContent(content: string): GeneratedDeckPayload {
+function parseJsonContent<T = unknown>(content: string): T {
   const cleaned = content
     .trim()
     .replace(/^```(?:json)?/i, "")
     .replace(/```$/i, "")
     .trim();
-  return JSON.parse(cleaned) as GeneratedDeckPayload;
+  return JSON.parse(cleaned) as T;
 }
 
 function normalizeSlidePayload(payload: unknown): GeneratedSlidePayload {
@@ -218,7 +292,7 @@ function normalizeSlidePayload(payload: unknown): GeneratedSlidePayload {
   };
 }
 
-function payloadToDeckState(payload: GeneratedDeckPayload, brief: DeckBrief): DeckState {
+function payloadToDeckState(payload: GeneratedDeckPayload, brief: DeckBrief, template: DeckTemplate): DeckState {
   const nodes = payload.nodes.slice(0, 8).map((node, index) => {
     const id = `ai-node-${index + 1}`;
     const slideId = `ai-slide-${index + 1}`;
@@ -257,7 +331,7 @@ function payloadToDeckState(payload: GeneratedDeckPayload, brief: DeckBrief): De
       tone: payload.deck?.tone || "清晰、克制、有商业判断",
       duration: payload.deck?.duration || brief.duration
     },
-    template: createDeckTemplate(brief),
+    template,
     nodes,
     slides,
     activeNodeId: nodes[0].id,

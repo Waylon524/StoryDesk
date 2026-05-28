@@ -27,56 +27,22 @@ describe("ai deck generation", () => {
   });
 
   it("posts an OpenAI-compatible request and converts JSON content into a deck", async () => {
-    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  deck: {
-                    title: "校园二手交易平台融资叙事",
-                    audience: "投资人",
-                    goal: "证明需求真实并获得种子资金",
-                    tone: "清晰、克制、有商业判断",
-                    duration: "8分钟"
-                  },
-                  nodes: [
-                    {
-                      title: "真实痛点",
-                      intent: "用毕业季闲置堆积引出交易效率问题",
-                      role: "开场",
-                      duration: "0:45",
-                      slide: {
-                        layout: "statement",
-                        title: "闲置物品不是没有价值，而是难以被安全成交",
-                        body: "毕业季集中释放供给，但校内买卖双方仍被信任、定价和交付阻碍。",
-                        bullets: ["供给集中释放", "信任成本高", "交付难约定"],
-                        note: "用具体校园场景开场。"
-                      }
-                    },
-                    {
-                      title: "解决路径",
-                      intent: "说明产品如何降低交易成本",
-                      role: "转折",
-                      duration: "1:00",
-                      slide: {
-                        layout: "process",
-                        title: "把交易成本拆成四个可降低环节",
-                        body: "围绕发布、匹配、认证和交付建立闭环。",
-                        bullets: ["标准化发布", "校内身份认证", "预约交付"],
-                        note: "避免堆功能。"
-                      }
-                    }
-                  ]
-                })
-              }
-            }
-          ]
-        }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      )
-    );
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(generatedNarrativePayload()))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          name: "Campus Signal",
+          aspectRatio: "16:9",
+          backgroundColor: "FFFFFF",
+          surfaceColor: "F8FAFC",
+          accentColor: "1D4ED8",
+          accentSoftColor: "DBEAFE",
+          textColor: "111827",
+          bodyColor: "374151",
+          borderColor: "D7E0EA"
+        })
+      );
 
     const deck = await generateDeckFromBrief(brief, settings, fetcher);
 
@@ -90,11 +56,17 @@ describe("ai deck generation", () => {
         })
       })
     );
+    expect(fetcher).toHaveBeenCalledTimes(2);
     const firstCall = fetcher.mock.calls[0];
     const request = JSON.parse(firstCall[1]?.body as string);
     expect(request.model).toBe("deepseek-v4-flash");
     expect(request.messages[1].content).toContain("校园二手交易平台");
     expect(request.messages[1].content).toContain("statement|three-point|process|closing");
+    expect(request.messages[1].content).toContain("不要输出 template");
+    const secondCall = fetcher.mock.calls[1];
+    const templateRequest = JSON.parse(secondCall[1]?.body as string);
+    expect(templateRequest.messages[0].content).toContain("全新的对话");
+    expect(templateRequest.messages[1].content).toContain("叙事地图 JSON");
     expect(deck.nodes).toHaveLength(2);
     expect(deck.nodes[0]).toMatchObject({
       id: "ai-node-1",
@@ -108,6 +80,10 @@ describe("ai deck generation", () => {
       title: "闲置物品不是没有价值，而是难以被安全成交"
     });
     expect(deck.slides[1].layout).toBe("process");
+    expect(deck.template).toMatchObject({
+      name: "Campus Signal",
+      accentColor: "1D4ED8"
+    });
   });
 
   it("rewrites only the selected slide from the node intent context", async () => {
@@ -162,51 +138,110 @@ describe("ai deck generation", () => {
   });
 
   it("creates a fixed deck template when a new narrative map is generated", async () => {
-    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      new Response(
-        JSON.stringify({
-          choices: [
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          deck: {
+            title: "AI 生成项目",
+            audience: "投资人",
+            goal: "说明机会",
+            tone: "清晰",
+            duration: "8分钟"
+          },
+          nodes: [
             {
-              message: {
-                content: JSON.stringify({
-                  deck: {
-                    title: "AI 生成项目",
-                    audience: "投资人",
-                    goal: "说明机会",
-                    tone: "清晰",
-                    duration: "8分钟"
-                  },
-                  nodes: [
-                    {
-                      title: "问题引入",
-                      intent: "从具体场景切入",
-                      role: "开场",
-                      duration: "0:45",
-                      slide: {
-                        layout: "unknown",
-                        title: "一个具体问题",
-                        body: "用故事打开。",
-                        bullets: ["场景", "阻碍", "机会"],
-                        note: "开场页。"
-                      }
-                    }
-                  ]
-                })
+              title: "问题引入",
+              intent: "从具体场景切入",
+              role: "开场",
+              duration: "0:45",
+              slide: {
+                layout: "unknown",
+                title: "一个具体问题",
+                body: "用故事打开。",
+                bullets: ["场景", "阻碍", "机会"],
+                note: "开场页。"
               }
             }
           ]
-        }),
-        { status: 200, headers: { "content-type": "application/json" } }
+        })
       )
-    );
+      .mockResolvedValueOnce(
+        jsonResponse({
+          name: "Invalid Low Risk",
+          aspectRatio: "16:9",
+          backgroundColor: "not-a-color",
+          surfaceColor: "F7F9FC",
+          accentColor: "2563EB",
+          accentSoftColor: "DBEAFE",
+          textColor: "111827",
+          bodyColor: "3F4756",
+          borderColor: "D7E0EA"
+        })
+      );
 
     const deck = await generateDeckFromBrief(brief, settings, fetcher);
 
     expect(deck.template).toMatchObject({
       aspectRatio: "16:9",
       backgroundColor: expect.any(String),
-      accentColor: expect.any(String)
+      accentColor: "2563EB"
     });
     expect(deck.slides[0].layout).toBe("statement");
   });
 });
+
+function jsonResponse(content: unknown) {
+  return new Response(
+    JSON.stringify({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify(content)
+          }
+        }
+      ]
+    }),
+    { status: 200, headers: { "content-type": "application/json" } }
+  );
+}
+
+function generatedNarrativePayload() {
+  return {
+    deck: {
+      title: "校园二手交易平台融资叙事",
+      audience: "投资人",
+      goal: "证明需求真实并获得种子资金",
+      tone: "清晰、克制、有商业判断",
+      duration: "8分钟"
+    },
+    nodes: [
+      {
+        title: "真实痛点",
+        intent: "用毕业季闲置堆积引出交易效率问题",
+        role: "开场",
+        duration: "0:45",
+        slide: {
+          layout: "statement",
+          title: "闲置物品不是没有价值，而是难以被安全成交",
+          body: "毕业季集中释放供给，但校内买卖双方仍被信任、定价和交付阻碍。",
+          bullets: ["供给集中释放", "信任成本高", "交付难约定"],
+          note: "用具体校园场景开场。"
+        }
+      },
+      {
+        title: "解决路径",
+        intent: "说明产品如何降低交易成本",
+        role: "转折",
+        duration: "1:00",
+        slide: {
+          layout: "process",
+          title: "把交易成本拆成四个可降低环节",
+          body: "围绕发布、匹配、认证和交付建立闭环。",
+          bullets: ["标准化发布", "校内身份认证", "预约交付"],
+          note: "避免堆功能。"
+        }
+      }
+    ]
+  };
+}

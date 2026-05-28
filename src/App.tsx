@@ -37,7 +37,9 @@ import {
   serializeDeckState
 } from "./lib/deckPersistence";
 import { appendDeckVersion, loadDeckVersions, restoreDeckVersion } from "./lib/deckVersions";
-import { getPreviewSlideLayout, getPptSlideLayout, pptWideCanvas, resolveSlideLayoutKind } from "./lib/slideLayout";
+import { renderSlidePreviewImage } from "./lib/libreOfficePreview";
+import { exportDeckPptx } from "./lib/pptxExport";
+import { getPreviewSlideLayout, resolveSlideLayoutKind } from "./lib/slideLayout";
 import type { AiSettings, DeckBrief, DeckState, DeckVersion, Slide, StoryNode } from "./types";
 
 interface RewriteCandidate {
@@ -77,11 +79,68 @@ function App() {
     status: "idle" | "working" | "done" | "error";
     message: string;
   }>({ status: "idle", message: "" });
+  const [previewState, setPreviewState] = useState<{
+    status: "idle" | "rendering" | "ready" | "error";
+    imageUrl: string | null;
+    message: string;
+  }>({ status: "idle", imageUrl: null, message: "正在等待 LibreOffice 预览服务。" });
   const [rewriteCandidate, setRewriteCandidate] = useState<RewriteCandidate | null>(null);
 
   useEffect(() => {
     saveDeckState(deckState);
   }, [deckState]);
+
+  useEffect(() => {
+    if (import.meta.env.MODE === "test") {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      setPreviewState((current) => ({
+        status: "rendering",
+        imageUrl: null,
+        message: "正在使用 LibreOffice 渲染真实 PPT 预览..."
+      }));
+
+      renderSlidePreviewImage(deckState, deckState.activeNodeId, controller.signal)
+        .then((imageUrl) => {
+          setPreviewState((current) => {
+            if (current.imageUrl) {
+              URL.revokeObjectURL(current.imageUrl);
+            }
+            return {
+              status: "ready",
+              imageUrl,
+              message: "预览来自 LibreOffice 渲染结果。"
+            };
+          });
+        })
+        .catch((error) => {
+          if (controller.signal.aborted) {
+            return;
+          }
+          setPreviewState((current) => ({
+            status: "error",
+            imageUrl: current.imageUrl,
+            message: error instanceof Error ? error.message : "LibreOffice 预览服务不可用，已回退到编辑预览。"
+          }));
+        });
+    }, 800);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [deckState]);
+
+  useEffect(() => {
+    return () => {
+      if (previewState.imageUrl) {
+        URL.revokeObjectURL(previewState.imageUrl);
+      }
+    };
+  }, [previewState.imageUrl]);
 
   const activeNode = useMemo(
     () => deckState.nodes.find((node) => node.id === deckState.activeNodeId) ?? deckState.nodes[0],
@@ -319,89 +378,7 @@ function App() {
 
   async function exportPptx() {
     setExportState("working");
-    const pptxgen = (await import("pptxgenjs")).default;
-    const pptx = new pptxgen();
-    pptx.defineLayout({ name: "STORYDECK_WIDE", width: pptWideCanvas.width, height: pptWideCanvas.height });
-    pptx.layout = "STORYDECK_WIDE";
-    pptx.author = "StoryDeck";
-    pptx.subject = deckState.deck.goal;
-    const template = deckState.template;
-    deckState.nodes.forEach((node) => {
-      const slideContent = deckState.slides.find((slide) => slide.nodeId === node.id);
-      if (!slideContent) {
-        return;
-      }
-      const layout = getPptSlideLayout(resolveSlideLayoutKind(slideContent.layout, node.role));
-      const slide = pptx.addSlide();
-      slide.background = { color: template.backgroundColor };
-      slide.addShape(pptx.ShapeType.rect, {
-        ...layout.accentBand,
-        fill: { color: template.accentSoftColor, transparency: 55 },
-        line: { color: template.accentSoftColor, transparency: 100 }
-      });
-      slide.addText(node.title, {
-        ...layout.kicker,
-        fontSize: 10,
-        bold: true,
-        color: template.accentColor
-      });
-      slide.addText(slideContent.title, {
-        ...layout.title,
-        fontSize: 30,
-        bold: true,
-        color: template.textColor,
-        breakLine: false,
-        fit: "shrink"
-      });
-      slide.addText(slideContent.body, {
-        ...layout.body,
-        fontSize: 15,
-        color: template.bodyColor,
-        breakLine: false,
-        fit: "shrink"
-      });
-      slideContent.bullets.slice(0, layout.bulletCards.length).forEach((bullet, index) => {
-        const card = layout.bulletCards[index];
-        const compactCard = card.h < 1;
-        const labelY = card.y + (compactCard ? 0.13 : 0.18);
-        const textY = card.y + (compactCard ? 0.39 : 0.58);
-        const textHeight = Math.max(card.h - (compactCard ? 0.5 : 0.72), 0.32);
-        slide.addShape(pptx.ShapeType.roundRect, {
-          ...card,
-          fill: { color: template.surfaceColor },
-          line: { color: template.borderColor }
-        });
-        slide.addText(String(index + 1).padStart(2, "0"), {
-          x: card.x + 0.17,
-          y: labelY,
-          w: 0.45,
-          h: 0.18,
-          fontSize: 9,
-          bold: true,
-          color: template.accentColor,
-          breakLine: false
-        });
-        slide.addText(bullet, {
-          x: card.x + 0.17,
-          y: textY,
-          w: card.w - 0.34,
-          h: textHeight,
-          fontSize: compactCard ? 12 : 13,
-          bold: true,
-          color: template.textColor,
-          breakLine: false,
-          fit: "shrink"
-        });
-      });
-      slide.addText(slideContent.note, {
-        ...layout.note,
-        fontSize: 12,
-        color: "64748B",
-        breakLine: false,
-        fit: "shrink"
-      });
-    });
-    await pptx.writeFile({ fileName: "StoryDeck-demo.pptx" });
+    await exportDeckPptx(deckState);
     setExportState("done");
     window.setTimeout(() => setExportState("idle"), 1800);
   }
@@ -473,22 +450,30 @@ function App() {
             </div>
           </div>
           <article className="slide-stage" aria-label="当前幻灯片预览">
-            <div className={`slide-card ${activeLayout.className}`} style={slideTemplateStyle}>
-              <div className="slide-kicker">{activeNode.role} · {activeNode.duration}</div>
-              <h1>{activeSlide.title}</h1>
-              <p>{activeSlide.body}</p>
-              <div className="slide-grid">
-                {activeSlide.bullets.slice(0, activeLayout.bulletCards.length).map((bullet, index) => (
-                  <div className="slide-point" key={bullet}>
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    <strong>{bullet}</strong>
-                  </div>
-                ))}
+            {previewState.imageUrl ? (
+              <img className="rendered-slide-preview" src={previewState.imageUrl} alt="LibreOffice 渲染的当前幻灯片预览" />
+            ) : (
+              <div className={`slide-card ${activeLayout.className}`} style={slideTemplateStyle}>
+                <div className="slide-kicker">{activeNode.role} · {activeNode.duration}</div>
+                <h1>{activeSlide.title}</h1>
+                <p>{activeSlide.body}</p>
+                <div className="slide-grid">
+                  {activeSlide.bullets.slice(0, activeLayout.bulletCards.length).map((bullet, index) => (
+                    <div className="slide-point" key={bullet}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <strong>{bullet}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="speaker-note">
+                  <MessageSquareText size={16} />
+                  <span>{activeSlide.note}</span>
+                </div>
               </div>
-              <div className="speaker-note">
-                <MessageSquareText size={16} />
-                <span>{activeSlide.note}</span>
-              </div>
+            )}
+            <div className={`preview-render-status ${previewState.status}`}>
+              {previewState.status === "rendering" ? <Loader2 className="spin" size={14} /> : <FileText size={14} />}
+              <span>{previewState.message}</span>
             </div>
           </article>
         </section>

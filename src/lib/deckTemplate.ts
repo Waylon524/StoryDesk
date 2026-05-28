@@ -57,6 +57,24 @@ export function createDeckTemplate(brief: DeckBrief): DeckTemplate {
   };
 }
 
+export function normalizeAiDeckTemplate(payload: unknown, brief: DeckBrief): DeckTemplate {
+  const fallback = createDeckTemplate(brief);
+  const template = payload && typeof payload === "object" ? (payload as Partial<DeckTemplate>) : {};
+
+  return {
+    id: `template-ai-${slugify(brief.topic)}`,
+    name: sanitizeTemplateName(template.name, fallback.name),
+    aspectRatio: "16:9",
+    backgroundColor: sanitizeHexColor(template.backgroundColor, fallback.backgroundColor),
+    surfaceColor: sanitizeHexColor(template.surfaceColor, fallback.surfaceColor),
+    accentColor: sanitizeHexColor(template.accentColor, fallback.accentColor),
+    accentSoftColor: sanitizeHexColor(template.accentSoftColor, fallback.accentSoftColor),
+    textColor: sanitizeHexColor(template.textColor, fallback.textColor),
+    bodyColor: sanitizeHexColor(template.bodyColor, fallback.bodyColor),
+    borderColor: sanitizeHexColor(template.borderColor, fallback.borderColor)
+  };
+}
+
 export function ensureDeckTemplate(deckState: DeckState | Omit<DeckState, "template">): DeckState {
   const maybeTemplate = (deckState as Partial<DeckState>).template;
   if (isDeckTemplate(maybeTemplate)) {
@@ -101,6 +119,24 @@ function isDeckTemplate(value: unknown): value is DeckTemplate {
 
 function hashString(value: string) {
   return Array.from(value).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 7);
+}
+
+function sanitizeTemplateName(value: unknown, fallback: string) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed.length <= 40 ? trimmed : fallback;
+}
+
+function sanitizeHexColor(value: unknown, fallback: string) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim().replace(/^#/, "").toUpperCase();
+  return /^[0-9A-F]{6}$/.test(normalized) ? normalized : fallback;
 }
 
 function slugify(value: string) {
